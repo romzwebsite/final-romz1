@@ -13,7 +13,7 @@ import { btn } from "@/components/ui/Button";
 
 // Drop the brand hero photo here. Until it exists the navy-deep backdrop shows,
 // so a missing file never breaks the page.
-const HERO_IMAGE = "/hero/romz-hero.png";
+const HERO_IMAGE = "/hero/romz-hero.jpg";
 
 export default function HeroPhoto({
   kicker,
