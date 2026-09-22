@@ -65,7 +65,10 @@ export default function ProductGallery({
           <img
             src={current.url}
             alt={alt}
-            className="aspect-square h-auto w-full object-cover transition-opacity duration-200"
+            // No fixed ratio: the photo keeps its own proportions instead of
+            // being cropped into a square, which made portrait shots look
+            // zoomed in.
+            className="h-auto w-full object-contain transition-opacity duration-200"
           />
         )}
       </div>
