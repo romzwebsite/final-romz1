@@ -66,7 +66,10 @@ export default function HeroPhoto({
       <motion.div
         aria-hidden
         style={bgStyle}
-        className="absolute -inset-[6%] bg-cover bg-center will-change-transform"
+        // On phones the frame is tall, so a centered cover crop lands the
+        // artwork's RZ lockup right behind the headline. Shift towards the
+        // runner there; desktop keeps the full centered crop.
+        className="absolute -inset-[6%] bg-[length:auto_115%] bg-[position:78%_center] bg-no-repeat will-change-transform md:bg-cover md:bg-center"
       />
 
       {/* Brand red wash from the start edge + darken for legibility */}
