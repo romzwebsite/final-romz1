@@ -48,7 +48,34 @@ export default function Logo({
           }}
         />
       )}
-      <span>ROMZ</span>
+      <Wordmark />
     </span>
+  );
+}
+
+/**
+ * "ROMZ" wordmark drawn as vector glyphs (squared letters with rounded outer
+ * corners, wide tracking) so it matches the brand artwork exactly instead of
+ * depending on a web font. Filled with `currentColor` like the mark.
+ */
+function Wordmark() {
+  return (
+    <svg
+      role="img"
+      aria-label="ROMZ"
+      viewBox="193 794 1461 216"
+      className="h-[0.7em] w-auto shrink-0"
+      fill="currentColor"
+      fillRule="evenodd"
+    >
+      {/* R */}
+      <path d="M193 794H367a43 43 0 0 1 43 43V880a43 43 0 0 1-43 43H323L367 967H410V1010H358Q350 1010 344 1004L263 923H236V1010H193ZM236 837V880H367V837Z" />
+      {/* O */}
+      <path d="M691 794H821a43 43 0 0 1 43 43V967a43 43 0 0 1-43 43H691a43 43 0 0 1-43-43V837a43 43 0 0 1 43-43ZM691 837V967H821V837Z" />
+      {/* M */}
+      <path d="M1043 794H1108L1146 962L1184 794H1249V1010H1208V829L1167 1010H1124L1085 829V1010H1043Z" />
+      {/* Z */}
+      <path d="M1438 794H1632Q1652 794 1652 812Q1652 822 1645 829L1512 967H1654V1010H1460Q1440 1010 1440 992Q1440 982 1447 975L1580 837H1438Z" />
+    </svg>
   );
 }
