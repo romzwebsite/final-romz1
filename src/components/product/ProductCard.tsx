@@ -35,7 +35,7 @@ export default function ProductCard({ product }: { product: Product }) {
 
   return (
     <div className="group relative border-t-2 border-transparent transition-[border-color,translate,box-shadow] duration-300 hover:border-brand hover:-translate-y-1 hover:shadow-lg motion-reduce:transition-colors motion-reduce:hover:translate-y-0">
-      <div className="relative aspect-square overflow-hidden bg-surface">
+      <div className="relative aspect-[3/4] overflow-hidden bg-surface">
         {current && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
