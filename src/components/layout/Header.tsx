@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ChevronDown, Menu, Search, ShoppingCart, User, X } from "lucide-react";
+import { ChevronDown, Menu, Minus, Plus, Search, ShoppingCart, User, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Link } from "@/i18n/navigation";
 import { useCart } from "@/components/cart/CartProvider";
@@ -18,6 +18,8 @@ export default function Header({ categories = [] }: { categories?: Category[] })
   const reducedMotion = useReducedMotion();
   const { count, setOpen } = useCart();
   const [mobileOpen, setMobileOpen] = useState(false);
+  // Mobile drawer: which category's subcategories are expanded (one at a time).
+  const [expandedCat, setExpandedCat] = useState<Category["id"] | null>(null);
   // Drawer slides in from the start edge: left in English, right in Arabic.
   const drawerOffscreenX = isRtl ? "100%" : "-100%";
 
@@ -162,31 +164,60 @@ export default function Header({ categories = [] }: { categories?: Category[] })
                   {t("newDrop")}
                 </Link>
 
-                {categories.map((cat) => (
-                  <div key={cat.id}>
-                    <Link
-                      href={`/category/${cat.slug}`}
-                      onClick={() => setMobileOpen(false)}
-                      className="block py-2.5 font-display uppercase text-navy hover:text-brand"
-                    >
-                      {lt(cat.name, locale)}
-                    </Link>
-                    {cat.children && cat.children.length > 0 && (
-                      <div className="mb-1 ms-4 border-s-2 border-navy/10 ps-3">
-                        {cat.children.map((sub) => (
-                          <Link
-                            key={sub.id}
-                            href={`/category/${sub.slug}`}
-                            onClick={() => setMobileOpen(false)}
-                            className="block py-1.5 text-sm font-bold uppercase text-muted hover:text-brand"
+                {categories.map((cat) => {
+                  const hasChildren = !!cat.children && cat.children.length > 0;
+                  const isExpanded = expandedCat === cat.id;
+                  return (
+                    <div key={cat.id}>
+                      <div className="flex items-center justify-between gap-2">
+                        <Link
+                          href={`/category/${cat.slug}`}
+                          onClick={() => setMobileOpen(false)}
+                          className="block flex-1 py-2.5 font-display uppercase text-navy hover:text-brand"
+                        >
+                          {lt(cat.name, locale)}
+                        </Link>
+                        {hasChildren && (
+                          <button
+                            type="button"
+                            onClick={() => setExpandedCat(isExpanded ? null : cat.id)}
+                            aria-expanded={isExpanded}
+                            aria-controls={`mobile-subcats-${cat.id}`}
+                            aria-label={isExpanded ? "collapse" : "expand"}
+                            className="flex h-9 w-9 items-center justify-center text-navy hover:text-brand cursor-pointer"
                           >
-                            {lt(sub.name, locale)}
-                          </Link>
-                        ))}
+                            {isExpanded ? <Minus size={18} /> : <Plus size={18} />}
+                          </button>
+                        )}
                       </div>
-                    )}
-                  </div>
-                ))}
+                      <AnimatePresence initial={false}>
+                        {hasChildren && isExpanded && (
+                          <motion.div
+                            id={`mobile-subcats-${cat.id}`}
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: reducedMotion ? 0 : 0.2 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="mb-1 ms-4 border-s-2 border-navy/10 ps-3">
+                              {cat.children!.map((sub) => (
+                                <Link
+                                  key={sub.id}
+                                  href={`/category/${sub.slug}`}
+                                  onClick={() => setMobileOpen(false)}
+                                  className="block py-1.5 text-sm font-bold uppercase text-muted hover:text-brand"
+                                >
+                                  {lt(sub.name, locale)}
+                                </Link>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  );
+                })}
 
                 <Link
                   href="/track-order"
