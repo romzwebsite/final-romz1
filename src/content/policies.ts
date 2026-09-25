@@ -611,25 +611,19 @@ const POLICIES: Record<PolicyKey, Record<Locale, PolicyContent>> = {
           ],
         },
         {
-          heading: "4. Shipping Fees",
-          body: [
-            "Shipping fees are calculated at checkout based on your governorate. Orders over 2,000 EGP qualify for free shipping.",
-          ],
-        },
-        {
-          heading: "5. Order Tracking",
+          heading: "4. Order Tracking",
           body: [
             "Once your order ships, you can follow its progress on our Track Order page using your order number and the phone or email you ordered with.",
           ],
         },
         {
-          heading: "6. Failed or Delayed Delivery",
+          heading: "5. Failed or Delayed Delivery",
           body: [
             "Our courier will attempt delivery and may contact you to arrange a suitable time. If delivery repeatedly fails due to incorrect details or no response, the order may be returned to us.",
           ],
         },
         {
-          heading: "7. Contact",
+          heading: "6. Contact",
           body: [
             `Questions about your shipment? Contact us at ${email} or ${phone}.`,
           ],
@@ -665,25 +659,19 @@ const POLICIES: Record<PolicyKey, Record<Locale, PolicyContent>> = {
           ],
         },
         {
-          heading: "٤. رسوم الشحن",
-          body: [
-            "رسوم الشحن بتتحسب عند إتمام الطلب حسب محافظتك. الطلبات فوق ٢٠٠٠ ج.م بتحصل على شحن مجاني.",
-          ],
-        },
-        {
-          heading: "٥. تتبّع الطلب",
+          heading: "٤. تتبّع الطلب",
           body: [
             "بمجرد ما يتشحن طلبك، تقدر تتابع حالته من صفحة تتبّع الطلب باستخدام رقم الطلب والموبايل أو الإيميل اللي طلبت بيه.",
           ],
         },
         {
-          heading: "٦. فشل أو تأخّر التوصيل",
+          heading: "٥. فشل أو تأخّر التوصيل",
           body: [
             "شركة الشحن هتحاول التوصيل وممكن تتواصل معاك لتحديد وقت مناسب. لو التوصيل فشل أكتر من مرة بسبب بيانات غير صحيحة أو عدم الرد، ممكن يترجع الطلب لينا.",
           ],
         },
         {
-          heading: "٧. التواصل",
+          heading: "٦. التواصل",
           body: [
             `عندك سؤال عن الشحنة؟ تواصل معانا على ${email} أو ${phone}.`,
           ],
@@ -693,8 +681,31 @@ const POLICIES: Record<PolicyKey, Record<Locale, PolicyContent>> = {
   },
 };
 
-export function getPolicy(key: PolicyKey, locale: Locale): PolicyContent {
-  return POLICIES[key][locale] ?? POLICIES[key].en;
+/**
+ * `contact` is the email/phone the admin set under Settings → Contact info;
+ * when given, it replaces the SITE_CONTACT placeholders in the policy text.
+ */
+export function getPolicy(
+  key: PolicyKey,
+  locale: Locale,
+  contact?: { email?: string; phone?: string }
+): PolicyContent {
+  const policy = POLICIES[key][locale] ?? POLICIES[key].en;
+  const realEmail = contact?.email?.trim();
+  const realPhone = contact?.phone?.trim();
+  if (!realEmail && !realPhone) return policy;
+
+  const fill = (text: string) => {
+    let out = text;
+    if (realEmail) out = out.split(email).join(realEmail);
+    if (realPhone) out = out.split(phone).join(realPhone);
+    return out;
+  };
+  return {
+    ...policy,
+    intro: policy.intro && fill(policy.intro),
+    sections: policy.sections.map((s) => ({ ...s, body: s.body.map(fill) })),
+  };
 }
 
 /** Localized site contact details for the Contact page and footers. */
