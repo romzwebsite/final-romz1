@@ -75,6 +75,10 @@ export default function ProductPurchase({
   const unitPrice =
     cartVariant?.priceOverride ?? product.salePrice ?? product.basePrice;
   const canAdd = Boolean(cartVariant && cartVariant.stock > 0);
+  // Before a size is picked the CTA asks for one (and stays clickable so the
+  // size error shows); it only reads "out of stock" when nothing is left.
+  const needsSize = hasSizes && !size && sizesForColor.some((s) => s.stock > 0);
+  const ctaEnabled = canAdd || needsSize;
 
   useEffect(() => {
     onPriceOverrideChange?.(cartVariant?.priceOverride ?? null);
@@ -236,16 +240,16 @@ export default function ProductPurchase({
         <Button
           size="lg"
           className="w-full"
-          disabled={!canAdd}
+          disabled={!ctaEnabled}
           onClick={addToCart}
         >
-          {canAdd ? t("addToCart") : t("outOfStock")}
+          {canAdd ? t("addToCart") : needsSize ? t("selectSize") : t("outOfStock")}
         </Button>
         <Button
           variant="outline"
           size="lg"
           className="w-full"
-          disabled={!canAdd}
+          disabled={!ctaEnabled}
           onClick={() => {
             if (addToCart()) router.push("/checkout");
           }}

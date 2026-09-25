@@ -102,7 +102,7 @@
   "product": {
     "color": "Color",
     "size": "Size",
-    "selectSize": "Select a size",
+    "selectSize": "Choose the size",
     "sizeChart": "Size Chart",
     "chooseSize": "Please choose a size.",
     "quantity": "Quantity",
