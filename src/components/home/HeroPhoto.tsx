@@ -13,7 +13,7 @@ import { btn } from "@/components/ui/Button";
 
 // Drop the brand hero photo here. Until it exists the navy-deep backdrop shows,
 // so a missing file never breaks the page.
-const HERO_IMAGE = "/hero/romz-hero.webp";
+const HERO_IMAGE = "/hero/romz-hero.jpg";
 
 export default function HeroPhoto({
   kicker,
@@ -66,10 +66,10 @@ export default function HeroPhoto({
       <motion.div
         aria-hidden
         style={bgStyle}
-        // On phones the frame is tall, so a centered cover crop lands the
-        // artwork's RZ lockup right behind the headline. Shift towards the
-        // runner there; desktop keeps the full centered crop.
-        className="absolute -inset-[6%] bg-[length:auto_115%] bg-[position:78%_center] bg-no-repeat will-change-transform md:bg-cover md:bg-center"
+        // Anchored to the top so the models' faces never get cropped. Phones
+        // (tall frame) shift right so the front model sits clear of the red
+        // headline block; wider screens show the full width centered.
+        className="absolute -inset-[6%] bg-cover bg-[position:58%_top] will-change-transform md:bg-[position:center_top]"
       />
 
       {/* Brand red wash from the start edge + darken for legibility */}
