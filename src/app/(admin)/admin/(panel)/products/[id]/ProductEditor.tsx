@@ -27,7 +27,10 @@ const inputCls =
 const labelCls =
   "mb-1.5 block text-[11px] font-extrabold uppercase tracking-wider text-muted";
 
-const MAX_IMAGES = 8;
+const MAX_IMAGES = 8; // product in a single category
+const MAX_PER_CATEGORY = 6; // product in 2+ categories: photos per category
+const MAX_NEW_FILES = 24; // new uploads per save (matches the backend limit)
+const MEDIA_INPUT_ID = "product-media-input";
 const MAX_FILE_MB = 15;
 
 // The URL slug is derived from the English name — admins never edit it.
@@ -164,6 +167,8 @@ export default function ProductEditor({
   // Categories each new device file is the main image of (aligned to imageFiles).
   const [imageFileMainForIds, setImageFileMainForIds] = useState<string[][]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Category whose Upload tile opened the file picker (null = no category).
+  const [uploadTarget, setUploadTarget] = useState<string | null>(null);
 
   // Object-URL previews for device files, revoked when the list changes.
   const filePreviews = useMemo(
@@ -177,9 +182,24 @@ export default function ProductEditor({
 
   const addFiles = (list: FileList | null) => {
     if (!list) return;
-    const room = MAX_IMAGES - images.length - imageFiles.length;
+    const target = uploadTarget;
+    const limit = target ? MAX_PER_CATEGORY : MAX_IMAGES;
+    const used = target
+      ? images.filter((im) => im.categoryIds?.includes(target)).length +
+        imageFileCategoryIds.filter((ids) => ids.includes(target)).length
+      : images.length + imageFiles.length;
+    const room = Math.min(limit - used, MAX_NEW_FILES - imageFiles.length);
     if (room <= 0) {
-      setMessage({ kind: "error", text: `Up to ${MAX_IMAGES} images per product.` });
+      setMessage({
+        kind: "error",
+        text:
+          used >= limit
+            ? target
+              ? `Up to ${MAX_PER_CATEGORY} photos per category.`
+              : `Up to ${MAX_IMAGES} images per product.`
+            : `Save first — up to ${MAX_NEW_FILES} new photos per save.`,
+      });
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
     const valid: File[] = [];
@@ -197,10 +217,10 @@ export default function ProductEditor({
     const added = valid.slice(0, room);
     setImageFiles((fs) => [...fs, ...added]);
     setImageFileColors((cs) => [...cs, ...added.map(() => undefined)]);
-    setImageFileCategoryIds((cs) => [...cs, ...added.map(() => [])]);
+    setImageFileCategoryIds((cs) => [...cs, ...added.map(() => (target ? [target] : []))]);
     setImageFileMainForIds((cs) => [...cs, ...added.map(() => [])]);
     if (valid.length > room) {
-      setMessage({ kind: "error", text: `Only ${MAX_IMAGES} images allowed; extras were skipped.` });
+      setMessage({ kind: "error", text: `Only ${room} more photo(s) fit here; extras were skipped.` });
     }
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -295,132 +315,108 @@ export default function ProductEditor({
     setImageFileMainForIds((cs) => cs.filter((_, j) => j !== index));
   };
 
-  const toggleId = (ids: string[] | undefined, id: string) =>
-    ids?.includes(id) ? ids.filter((x) => x !== id) : [...(ids ?? []), id];
   const without = (ids: string[] | undefined, id: string) =>
     (ids ?? []).filter((x) => x !== id);
 
-  // Un-tagging a category also drops the image as that category's main image.
-  const toggleImageCategory = (index: number, id: string) =>
-    setImages((imgs) =>
-      imgs.map((im, j) => {
-        if (j !== index) return im;
-        const removing = im.categoryIds?.includes(id);
-        return {
-          ...im,
-          categoryIds: toggleId(im.categoryIds, id),
-          mainForIds: removing ? without(im.mainForIds, id) : im.mainForIds,
-        };
-      })
-    );
-
-  const toggleFileCategory = (index: number, id: string) => {
-    const removing = imageFileCategoryIds[index]?.includes(id);
-    setImageFileCategoryIds((cs) =>
-      cs.map((ids, j) => (j === index ? toggleId(ids, id) : ids))
-    );
-    if (removing) {
-      setImageFileMainForIds((cs) =>
-        cs.map((ids, j) => (j === index ? without(ids, id) : ids))
-      );
-    }
-  };
-
-  // ★ Main image per category: one image per category across saved + new
-  // images. Picking a new one clears the previous; picking it again unsets it.
-  // A main image is also shown in that category if it has category tags.
-  const setMainImage = (target: { file: boolean; index: number }, id: string) => {
-    const isTarget = (file: boolean, index: number) =>
-      target.file === file && target.index === index;
-    const alreadyMain = target.file
-      ? imageFileMainForIds[target.index]?.includes(id)
-      : images[target.index]?.mainForIds?.includes(id);
-    const addShowIn = (ids: string[] | undefined) =>
-      ids?.length && !ids.includes(id) ? [...ids, id] : ids ?? [];
-
-    setImages((imgs) =>
-      imgs.map((im, j) =>
-        isTarget(false, j)
-          ? {
-              ...im,
-              mainForIds: alreadyMain ? without(im.mainForIds, id) : [...without(im.mainForIds, id), id],
-              categoryIds: alreadyMain ? im.categoryIds : addShowIn(im.categoryIds),
-            }
-          : { ...im, mainForIds: without(im.mainForIds, id) }
-      )
-    );
-    setImageFileMainForIds((cs) =>
-      cs.map((ids, j) =>
-        isTarget(true, j) && !alreadyMain ? [...without(ids, id), id] : without(ids, id)
-      )
-    );
-    if (target.file && !alreadyMain) {
-      setImageFileCategoryIds((cs) =>
-        cs.map((ids, j) => (j === target.index ? addShowIn(ids) : ids))
-      );
-    }
-  };
-
-  // The product's own categories — the only ones an image can be tagged with.
+  // The product's own categories. Once there are 2+, each gets its own media
+  // section (up to MAX_PER_CATEGORY photos) with its own main image.
   const productCategoryOptions = categoryOptions
     .filter((c) => form.categoryIds.includes(c.id))
     .map((c) => ({ id: c.id, label: c.label.replace(/^— /, "") }));
+  const perCategoryMedia = productCategoryOptions.length >= 2;
+  // Tags still pointing at one of the product's categories (the backend drops
+  // the rest on save, which makes such images show everywhere).
+  const validCats = (ids: string[] | undefined) =>
+    (ids ?? []).filter((id) => form.categoryIds.includes(id));
 
-  // Per-image "show in" chips plus a ★ to make it that category's main image;
-  // only relevant once the product is in 2+ categories.
-  const renderCategoryPicker = (
-    value: string[] | undefined,
-    mainFor: string[] | undefined,
-    onToggle: (id: string) => void,
-    onMain: (id: string) => void
-  ) => {
-    if (productCategoryOptions.length < 2) return null;
-    const selected = (value ?? []).filter((id) =>
-      productCategoryOptions.some((c) => c.id === id)
+  // One media tile: a saved image or a not-yet-saved device file.
+  type MediaItem = {
+    file: boolean;
+    index: number;
+    url: string;
+    color?: string;
+    categoryIds: string[];
+    mainForIds: string[];
+  };
+  const mediaItems: MediaItem[] = [
+    ...images.map((im, index) => ({
+      file: false,
+      index,
+      url: im.url,
+      color: im.color,
+      categoryIds: im.categoryIds ?? [],
+      mainForIds: im.mainForIds ?? [],
+    })),
+    ...filePreviews.map((p, index) => ({
+      file: true,
+      index,
+      url: p.url,
+      color: imageFileColors[index],
+      categoryIds: imageFileCategoryIds[index] ?? [],
+      mainForIds: imageFileMainForIds[index] ?? [],
+    })),
+  ];
+  const itemsInCategory = (catId: string) =>
+    mediaItems.filter((m) => m.categoryIds.includes(catId));
+  const sharedItems = mediaItems.filter((m) => validCats(m.categoryIds).length === 0);
+  // A category's main image: the one the admin picked, else its first photo.
+  const mainItemFor = (catId: string, items: MediaItem[]) =>
+    items.find((m) => m.mainForIds.includes(catId)) ?? items[0];
+
+  const setMainImage = (target: { file: boolean; index: number }, catId: string) => {
+    setImages((imgs) =>
+      imgs.map((im, j) => ({
+        ...im,
+        mainForIds:
+          !target.file && target.index === j
+            ? [...without(im.mainForIds, catId), catId]
+            : without(im.mainForIds, catId),
+      }))
     );
-    return (
-      <div className="mt-1.5">
-        <p className="text-[9px] font-bold uppercase leading-tight text-muted">
-          {selected.length ? "Show in" : "Show in: all categories"} · ★ = main
-        </p>
-        <div className="mt-1 flex flex-wrap gap-1">
-          {productCategoryOptions.map((c) => {
-            const isMain = mainFor?.includes(c.id);
-            return (
-              <div key={c.id} className="flex">
-                <button
-                  type="button"
-                  onClick={() => onToggle(c.id)}
-                  className={clsx(
-                    "border px-1.5 py-0.5 text-[9px] font-extrabold uppercase cursor-pointer",
-                    selected.includes(c.id)
-                      ? "border-brand bg-brand text-white"
-                      : "border-navy/20 text-navy hover:border-navy"
-                  )}
-                >
-                  {c.label}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onMain(c.id)}
-                  title={isMain ? `Main image in ${c.label}` : `Make main image in ${c.label}`}
-                  aria-label={`Main image in ${c.label}`}
-                  aria-pressed={isMain}
-                  className={clsx(
-                    "flex items-center border border-s-0 px-1 cursor-pointer",
-                    isMain
-                      ? "border-amber bg-amber text-navy"
-                      : "border-navy/20 text-navy/40 hover:text-navy"
-                  )}
-                >
-                  <Star size={10} fill={isMain ? "currentColor" : "none"} />
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+    setImageFileMainForIds((cs) =>
+      cs.map((ids, j) =>
+        target.file && target.index === j ? [...without(ids, catId), catId] : without(ids, catId)
+      )
     );
+  };
+
+  // "Move to" for images that aren't in any category yet (e.g. photos from
+  // before the product was split across categories).
+  const assignToCategory = (item: MediaItem, catId: string) => {
+    if (itemsInCategory(catId).length >= MAX_PER_CATEGORY) {
+      setMessage({ kind: "error", text: `That category already has ${MAX_PER_CATEGORY} photos.` });
+      return;
+    }
+    if (item.file) {
+      setImageFileCategoryIds((cs) => cs.map((ids, j) => (j === item.index ? [catId] : ids)));
+    } else {
+      setImages((imgs) =>
+        imgs.map((im, j) => (j === item.index ? { ...im, categoryIds: [catId] } : im))
+      );
+    }
+  };
+
+  // Removing a photo from a category section only untags it when it is also in
+  // another category; otherwise the photo itself is removed.
+  const removeMediaItem = (item: MediaItem, catId?: string) => {
+    const inOthers = catId ? validCats(item.categoryIds).some((id) => id !== catId) : false;
+    if (catId && inOthers) {
+      if (item.file) {
+        setImageFileCategoryIds((cs) => cs.map((ids, j) => (j === item.index ? without(ids, catId) : ids)));
+        setImageFileMainForIds((cs) => cs.map((ids, j) => (j === item.index ? without(ids, catId) : ids)));
+      } else {
+        setImages((imgs) =>
+          imgs.map((im, j) =>
+            j === item.index
+              ? { ...im, categoryIds: without(im.categoryIds, catId), mainForIds: without(im.mainForIds, catId) }
+              : im
+          )
+        );
+      }
+      return;
+    }
+    if (item.file) removeImageFile(item.index);
+    else setImages((imgs) => imgs.filter((_, j) => j !== item.index));
   };
 
   // Swatch row for tagging an image with one of the variant colors (or none).
@@ -465,6 +461,125 @@ export default function ProductEditor({
         ))}
       </div>
     );
+
+  // One block of photo tiles: a category's section (catId set), the "shown in
+  // every category" leftovers (shared), or the whole product (single category).
+  const renderMediaSection = ({
+    catId,
+    title,
+    items,
+    limit,
+    shared = false,
+  }: {
+    catId?: string;
+    title?: string;
+    items: MediaItem[];
+    limit?: number;
+    shared?: boolean;
+  }) => {
+    const main = shared ? undefined : catId ? mainItemFor(catId, items) : items[0];
+    return (
+      <section key={catId ?? (shared ? "shared" : "all")} className={title ? "mt-7" : "mt-5"}>
+        {title && (
+          <div className="flex items-baseline justify-between border-b border-navy/15 pb-1.5">
+            <h3 className="text-sm font-extrabold uppercase tracking-wider text-navy">{title}</h3>
+            {limit && (
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
+                {items.length}/{limit} photos
+              </span>
+            )}
+          </div>
+        )}
+        {shared && (
+          <p className="mt-1.5 text-[10px] leading-tight text-muted">
+            These photos aren&apos;t in a category, so they show in every category. Move each
+            one into a category or remove it.
+          </p>
+        )}
+        <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3">
+          {items.map((item) => {
+            const isMain = item === main;
+            return (
+              <div
+                key={`${item.file ? "new" : "saved"}-${item.index}-${item.url}`}
+                className={clsx(
+                  "relative border bg-surface p-2",
+                  isMain && catId ? "border-brand" : item.file ? "border-brand/30" : "border-navy/10"
+                )}
+              >
+                {isMain && (
+                  <span className="absolute top-2 start-2 z-10 bg-brand px-2 py-0.5 text-[9px] font-extrabold uppercase text-white">
+                    {catId ? "Main" : "Main Image"}
+                  </span>
+                )}
+                {item.file && (
+                  <span className="absolute bottom-2 start-2 z-10 bg-navy/80 px-1.5 py-0.5 text-[8px] font-extrabold uppercase text-white">
+                    New
+                  </span>
+                )}
+                <button
+                  onClick={() => removeMediaItem(item, catId)}
+                  aria-label="Remove image"
+                  className="absolute top-2 end-2 z-10 bg-navy p-1 text-white hover:bg-brand transition-colors cursor-pointer"
+                >
+                  <X size={12} />
+                </button>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={item.url} alt="" className="aspect-square w-full object-cover" />
+                {renderColorPicker(item.color, (hex) =>
+                  item.file ? setFileColor(item.index, hex) : setImageColor(item.index, hex)
+                )}
+                {catId && !isMain && (
+                  <button
+                    type="button"
+                    onClick={() => setMainImage(item, catId)}
+                    className="mt-1.5 flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-wider text-navy/60 hover:text-brand cursor-pointer"
+                  >
+                    <Star size={10} /> Set as main
+                  </button>
+                )}
+                {shared && (
+                  <select
+                    value=""
+                    onChange={(e) => e.target.value && assignToCategory(item, e.target.value)}
+                    className="mt-1.5 w-full border border-navy/20 bg-white px-1 py-0.5 text-[10px] font-bold uppercase text-navy"
+                    aria-label="Move to category"
+                  >
+                    <option value="">Move to…</option>
+                    {productCategoryOptions.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            );
+          })}
+
+          {!shared && limit !== undefined && items.length < limit && (
+            <div className="flex aspect-square flex-col items-center justify-center gap-2 border-2 border-dashed border-navy/20 p-3">
+              {/* A label opens the shared file input natively; remembering the
+                  section first routes the picked files into it. */}
+              <label
+                htmlFor={MEDIA_INPUT_ID}
+                onClick={() => setUploadTarget(catId ?? null)}
+                className="flex flex-col items-center gap-1 text-brand hover:text-brand-dark cursor-pointer"
+              >
+                <Upload size={20} />
+                <span className="text-center text-[10px] font-extrabold uppercase tracking-wider">
+                  {title ? `Upload to ${title}` : "Upload"}
+                </span>
+              </label>
+              <p className="text-center text-[9px] leading-tight text-muted">
+                JPG, PNG, WebP, or another image file
+              </p>
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  };
 
   const toggleBadge = (badge: Product["badges"][number]) =>
     setForm((f) => ({
@@ -585,27 +700,46 @@ export default function ProductEditor({
       }))
     );
 
-  const payload = (preparedImageFiles = imageFiles): ProductPayload => ({
-    name: form.name,
-    description: form.description,
-    // Auto-derived from the English name; the backend also regenerates it.
-    slug: slugify(form.name.en),
-    // Legacy fallback for backends that still require a single category.
-    category: form.categoryIds[0] ?? "",
-    categories: form.categoryIds,
-    basePrice: form.basePrice,
-    salePrice: form.salePrice === "" ? null : form.salePrice,
-    badges: form.badges,
-    images,
-    imageFiles: preparedImageFiles,
-    imageFileColors,
-    imageFileCategoryIds,
-    imageFileMainForIds,
-    variants: flattenVariants(),
-    isActive: form.active,
-    sizeChart,
-    fabricCare,
-  });
+  // A category with no picked main image saves its first photo as main, so the
+  // storefront shows exactly the image the editor labels "Main".
+  const mainForWithDefaults = () => {
+    const savedMain = images.map((im) => [...(im.mainForIds ?? [])]);
+    const fileMain = imageFileMainForIds.map((ids) => [...ids]);
+    if (perCategoryMedia) {
+      for (const c of productCategoryOptions) {
+        const items = itemsInCategory(c.id);
+        if (!items.length || items.some((m) => m.mainForIds.includes(c.id))) continue;
+        const first = items[0];
+        (first.file ? fileMain : savedMain)[first.index]?.push(c.id);
+      }
+    }
+    return { savedMain, fileMain };
+  };
+
+  const payload = (preparedImageFiles = imageFiles): ProductPayload => {
+    const { savedMain, fileMain } = mainForWithDefaults();
+    return {
+      name: form.name,
+      description: form.description,
+      // Auto-derived from the English name; the backend also regenerates it.
+      slug: slugify(form.name.en),
+      // Legacy fallback for backends that still require a single category.
+      category: form.categoryIds[0] ?? "",
+      categories: form.categoryIds,
+      basePrice: form.basePrice,
+      salePrice: form.salePrice === "" ? null : form.salePrice,
+      badges: form.badges,
+      images: images.map((im, i) => ({ ...im, mainForIds: savedMain[i] })),
+      imageFiles: preparedImageFiles,
+      imageFileColors,
+      imageFileCategoryIds,
+      imageFileMainForIds: fileMain,
+      variants: flattenVariants(),
+      isActive: form.active,
+      sizeChart,
+      fabricCare,
+    };
+  };
 
   const validate = (): string | null => {
     // These mirror the backend's required fields so the admin gets a clear
@@ -644,7 +778,7 @@ export default function ProductEditor({
     setMessage(null);
     try {
       const preparedImageFiles = await prepareImageUploads(imageFiles, {
-        maxFiles: MAX_IMAGES,
+        maxFiles: MAX_NEW_FILES,
       });
       const savePayload = payload(preparedImageFiles);
 
@@ -831,13 +965,17 @@ export default function ProductEditor({
                 Product Media
               </h2>
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
-                Max {MAX_IMAGES} · compressed to JPEG under 400 KB each
+                {perCategoryMedia
+                  ? `Up to ${MAX_PER_CATEGORY} per category`
+                  : `Max ${MAX_IMAGES}`}{" "}
+                · compressed to JPEG under 400 KB each
               </span>
             </div>
 
-            {/* Hidden native file input, opened by the upload tile/button. */}
+            {/* Hidden native file input, opened by a section's upload tile. */}
             <input
               ref={fileInputRef}
+              id={MEDIA_INPUT_ID}
               type="file"
               accept="image/*"
               multiple
@@ -845,99 +983,30 @@ export default function ProductEditor({
               className="hidden"
             />
 
-            <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
-              {images.map((img, i) => (
-                <div
-                  key={`${img.url}-${i}`}
-                  className="relative border border-navy/10 bg-surface p-2"
-                >
-                  {i === 0 && (
-                    <span className="absolute top-2 start-2 z-10 bg-brand px-2 py-0.5 text-[9px] font-extrabold uppercase text-white">
-                      Main Image
-                    </span>
-                  )}
-                  <button
-                    onClick={() =>
-                      setImages((imgs) => imgs.filter((_, j) => j !== i))
-                    }
-                    aria-label="Remove image"
-                    className="absolute top-2 end-2 z-10 bg-navy p-1 text-white hover:bg-brand transition-colors cursor-pointer"
-                  >
-                    <X size={12} />
-                  </button>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={img.url}
-                    alt=""
-                    className="aspect-square w-full object-cover"
-                  />
-                  {renderColorPicker(img.color, (hex) => setImageColor(i, hex))}
-                  {renderCategoryPicker(
-                    img.categoryIds,
-                    img.mainForIds,
-                    (id) => toggleImageCategory(i, id),
-                    (id) => setMainImage({ file: false, index: i }, id)
-                  )}
-                </div>
-              ))}
-
-              {/* New device uploads (not yet saved). */}
-              {filePreviews.map((p, i) => (
-                <div
-                  key={p.url}
-                  className="relative border border-brand/30 bg-surface p-2"
-                >
-                  {images.length === 0 && i === 0 && (
-                    <span className="absolute top-2 start-2 z-10 bg-brand px-2 py-0.5 text-[9px] font-extrabold uppercase text-white">
-                      Main Image
-                    </span>
-                  )}
-                  <span className="absolute bottom-2 start-2 z-10 bg-navy/80 px-1.5 py-0.5 text-[8px] font-extrabold uppercase text-white">
-                    New
-                  </span>
-                  <button
-                    onClick={() => removeImageFile(i)}
-                    aria-label="Remove image"
-                    className="absolute top-2 end-2 z-10 bg-navy p-1 text-white hover:bg-brand transition-colors cursor-pointer"
-                  >
-                    <X size={12} />
-                  </button>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={p.url}
-                    alt=""
-                    className="aspect-square w-full object-cover"
-                  />
-                  {renderColorPicker(imageFileColors[i], (hex) =>
-                    setFileColor(i, hex)
-                  )}
-                  {renderCategoryPicker(
-                    imageFileCategoryIds[i],
-                    imageFileMainForIds[i],
-                    (id) => toggleFileCategory(i, id),
-                    (id) => setMainImage({ file: true, index: i }, id)
-                  )}
-                </div>
-              ))}
-
-              {images.length + imageFiles.length < MAX_IMAGES && (
-                <div className="flex aspect-square flex-col items-center justify-center gap-2 border-2 border-dashed border-navy/20 p-3">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex flex-col items-center gap-1 text-brand hover:text-brand-dark cursor-pointer"
-                  >
-                    <Upload size={20} />
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider">
-                      Upload
-                    </span>
-                  </button>
-                  <p className="text-center text-[9px] leading-tight text-muted">
-                    JPG, PNG, WebP, or another image file
-                  </p>
-                </div>
-              )}
-            </div>
+            {perCategoryMedia ? (
+              <>
+                <p className="mt-3 text-[11px] leading-snug text-muted">
+                  Each category has its own photos. The <b className="text-brand">MAIN</b> photo
+                  is the one shown on the product card in that category.
+                </p>
+                {productCategoryOptions.map((c) =>
+                  renderMediaSection({
+                    catId: c.id,
+                    title: c.label,
+                    items: itemsInCategory(c.id),
+                    limit: MAX_PER_CATEGORY,
+                  })
+                )}
+                {sharedItems.length > 0 &&
+                  renderMediaSection({
+                    title: "Shown in every category",
+                    items: sharedItems,
+                    shared: true,
+                  })}
+              </>
+            ) : (
+              renderMediaSection({ items: mediaItems, limit: MAX_IMAGES })
+            )}
           </div>
 
           {/* Size Chart */}
