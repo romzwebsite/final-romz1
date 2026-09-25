@@ -1,12 +1,31 @@
 import type {
   ContactInfo,
   Faq,
+  HeroContent,
+  HeroImage,
   LocalizedText,
   ShippingReturns,
   StorefrontSettings,
 } from "./types";
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "").trim().replace(/\/+$/, "");
+const API_ORIGIN = API_URL.replace(/\/api\/v1$/, "");
+
+/** Makes a stored media URL loadable: legacy `/uploads/...` paths live on the API host. */
+export const resolveMediaUrl = (url: string) =>
+  !url || /^https?:\/\//i.test(url) ? url : `${API_ORIGIN}${url.startsWith("/") ? "" : "/"}${url}`;
+
+// Bundled hero photo, used until the admin uploads one (Admin → Hero Banner).
+export const DEFAULT_HERO_IMAGE = "/hero/romz-hero.jpg";
+
+export const EMPTY_HERO: HeroContent = {
+  title: { en: "", ar: "" },
+  subtitle: { en: "", ar: "" },
+  ctaLabel: { en: "", ar: "" },
+  ctaHref: "",
+  image: { url: "", publicId: "" },
+  mobileImage: { url: "", publicId: "" },
+};
 
 export const DEFAULT_STOREFRONT_SETTINGS: StorefrontSettings = {
   promoBar: {
@@ -36,6 +55,7 @@ export const DEFAULT_STOREFRONT_SETTINGS: StorefrontSettings = {
     address: { en: "", ar: "" },
     workingHours: { en: "", ar: "" },
   },
+  hero: EMPTY_HERO,
 };
 
 const textValue = (value: unknown, fallback: string) =>
@@ -84,6 +104,32 @@ export const normalizeContactInfo = (value: unknown): ContactInfo => {
     phone: textValue(v.phone, ""),
     address: localizedValue(v.address, EMPTY_TEXT),
     workingHours: localizedValue(v.workingHours, EMPTY_TEXT),
+  };
+};
+
+const heroImageValue = (value: unknown): HeroImage => {
+  const v = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  return { url: textValue(v.url, ""), publicId: textValue(v.publicId, "") };
+};
+
+/**
+ * The homepage hero is the first active entry of the backend's `heroSlides`
+ * (the storefront shows a single hero). Missing = all-empty, i.e. defaults.
+ */
+export const normalizeHero = (value: unknown): HeroContent => {
+  const slides = Array.isArray(value) ? value : [];
+  const first = slides.find(
+    (s) => s && typeof s === "object" && (s as Record<string, unknown>).isActive !== false
+  );
+  if (!first) return EMPTY_HERO;
+  const v = first as Record<string, unknown>;
+  return {
+    title: localizedValue(v.title, EMPTY_TEXT),
+    subtitle: localizedValue(v.subtitle, EMPTY_TEXT),
+    ctaLabel: localizedValue(v.ctaLabel, EMPTY_TEXT),
+    ctaHref: textValue(v.ctaHref, ""),
+    image: heroImageValue(v.image),
+    mobileImage: heroImageValue(v.mobileImage),
   };
 };
 
@@ -144,6 +190,7 @@ export const normalizeStorefrontSettings = (value: unknown): StorefrontSettings 
     faqs: normalizeFaqs(input.faqs),
     shippingReturns: normalizeShippingReturns(input.shippingReturns),
     contactInfo: normalizeContactInfo(input.contactInfo),
+    hero: normalizeHero(input.heroSlides),
   };
 };
 

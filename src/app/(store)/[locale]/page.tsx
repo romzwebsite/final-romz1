@@ -25,7 +25,7 @@ export default async function HomePage({
 
   return (
     <>
-      <Hero />
+      <Hero hero={settings.hero} />
 
       {/* New Arrivals */}
       <section

@@ -13,6 +13,8 @@ import type {
   ContactStatus,
   FabricCare,
   Faq,
+  HeroContent,
+  HeroImage,
   Order,
   OrderStatus,
   PageMeta,
@@ -33,6 +35,7 @@ import { contactListQuery, mapContactMessage, mapProduct } from "./api";
 import {
   normalizeContactInfo,
   normalizeFaqs,
+  normalizeHero,
   normalizeShippingReturns,
   normalizeStorefrontSettings,
 } from "./storefrontSettings";
@@ -629,6 +632,32 @@ export async function updateContactInfo(
     { method: "PATCH", json: { contactInfo } }
   );
   return normalizeContactInfo(data.settings?.contactInfo);
+}
+
+/** Upload a store-settings photo (homepage hero); returns its { url, publicId }. */
+export async function uploadSettingsImage(file: File): Promise<HeroImage> {
+  const fd = new FormData();
+  fd.set("image", file);
+  const data = await adminFetch<{ image: HeroImage }>("/admin/storefront-settings/images", {
+    method: "POST",
+    formData: fd,
+  });
+  return data.image;
+}
+
+/**
+ * Save the homepage hero. The storefront shows a single hero, stored as the
+ * only entry of `heroSlides`; the backend deletes photos it no longer uses.
+ */
+export async function updateHero(hero: HeroContent): Promise<HeroContent> {
+  const data = await adminFetch<{ settings: { heroSlides?: unknown } }>(
+    "/admin/storefront-settings",
+    {
+      method: "PATCH",
+      json: { heroSlides: [{ ...hero, isActive: true, order: 0 }] },
+    }
+  );
+  return normalizeHero(data.settings?.heroSlides);
 }
 
 // ── Analytics (client-side) ─────────────────────────────

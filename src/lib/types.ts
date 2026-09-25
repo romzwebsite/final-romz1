@@ -57,6 +57,25 @@ export interface StorefrontSettings {
   shippingReturns: ShippingReturns;
   /** Store contact details shown on the contact page (backend-driven). */
   contactInfo: ContactInfo;
+  /** Homepage hero set by the admin; empty fields fall back to the defaults. */
+  hero: HeroContent;
+}
+
+export interface HeroImage {
+  /** Stored URL (Cloudinary, or a legacy /uploads path). Empty = default photo. */
+  url: string;
+  publicId: string;
+}
+
+/** Homepage hero content (first slide of the backend's `heroSlides`). */
+export interface HeroContent {
+  title: LocalizedText;
+  subtitle: LocalizedText;
+  ctaLabel: LocalizedText;
+  ctaHref: string;
+  image: HeroImage;
+  /** Optional portrait photo for phones; falls back to `image`. */
+  mobileImage: HeroImage;
 }
 
 /** A single FAQ entry from storefront settings (data.settings.faqs). */

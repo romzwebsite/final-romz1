@@ -11,22 +11,22 @@ import {
 import { Link } from "@/i18n/navigation";
 import { btn } from "@/components/ui/Button";
 
-// Drop the brand hero photo here. Until it exists the navy-deep backdrop shows,
-// so a missing file never breaks the page.
-const HERO_IMAGE = "/hero/romz-hero.jpg";
-
 export default function HeroPhoto({
-  kicker,
   title,
   subtitle,
   cta,
   ctaHref,
+  image,
+  mobileImage,
 }: {
-  kicker: string;
   title: string;
   subtitle: string;
   cta: string;
   ctaHref: string;
+  /** Desktop/tablet photo URL. If it fails to load the navy-deep backdrop shows. */
+  image: string;
+  /** Phone photo URL (pass `image` again when there is no separate one). */
+  mobileImage: string;
 }) {
   const reduced = useReducedMotion();
   const ref = useRef<HTMLElement>(null);
@@ -51,15 +51,21 @@ export default function HeroPhoto({
     py.set(0);
   }
 
-  const bgStyle = reduced
-    ? { backgroundImage: `url(${HERO_IMAGE})` }
-    : { backgroundImage: `url(${HERO_IMAGE})`, x: bgX, y: bgY };
+  const bgStyle = reduced ? undefined : { x: bgX, y: bgY };
+
+  // Both photos travel as CSS variables so the breakpoint picks which one
+  // shows, without rendering two layers.
+  const photoVars = {
+    "--hero-img": `url(${JSON.stringify(image)})`,
+    "--hero-img-mobile": `url(${JSON.stringify(mobileImage)})`,
+  } as React.CSSProperties;
 
   return (
     <section
       ref={ref}
       onMouseMove={handleMove}
       onMouseLeave={reset}
+      style={photoVars}
       // Phones get a shorter hero: a tall 74vh frame cropped the landscape
       // photo down to a narrow zoomed-in slice of one model.
       className="relative min-h-[520px] overflow-hidden bg-navy-deep md:min-h-[760px]"
@@ -71,7 +77,7 @@ export default function HeroPhoto({
         // Anchored to the top so the models' faces never get cropped. The 6%
         // overscan only exists for the desktop mouse parallax, so phones skip
         // it and show more of the photo.
-        className="absolute inset-0 bg-cover bg-top will-change-transform md:-inset-[6%]"
+        className="absolute inset-0 bg-[image:var(--hero-img-mobile)] bg-cover bg-top will-change-transform md:-inset-[6%] md:bg-[image:var(--hero-img)]"
       />
 
       {/* Brand red wash from the start edge + darken for legibility */}
@@ -101,7 +107,7 @@ export default function HeroPhoto({
             transition={{ duration: 0.5, delay: 0.25 }}
             className="mt-5 max-w-md border-s-4 border-white ps-4 text-sm font-extrabold uppercase text-white/90 md:text-base"
           >
-            {kicker} {subtitle}
+            {subtitle}
           </motion.p>
           <motion.div
             initial={{ y: 20, opacity: 0 }}

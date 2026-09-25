@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  Image as ImageIcon,
   LayoutGrid,
   LogOut,
   Mail,
@@ -26,6 +27,7 @@ const items = [
   { label: "Coupons", href: "/admin/coupons", icon: Tag },
   { label: "Customers", href: "/admin/customers", icon: Users },
   { label: "Contact", href: "/admin/contact", icon: Mail },
+  { label: "Hero Banner", href: "/admin/hero", icon: ImageIcon },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
