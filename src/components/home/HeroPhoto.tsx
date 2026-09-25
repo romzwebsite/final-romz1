@@ -60,16 +60,18 @@ export default function HeroPhoto({
       ref={ref}
       onMouseMove={handleMove}
       onMouseLeave={reset}
-      className="relative min-h-[74vh] overflow-hidden bg-navy-deep md:min-h-[760px]"
+      // Phones get a shorter hero: a tall 74vh frame cropped the landscape
+      // photo down to a narrow zoomed-in slice of one model.
+      className="relative min-h-[460px] overflow-hidden bg-navy-deep md:min-h-[760px]"
     >
       {/* Full-bleed photo (cover, like the design) */}
       <motion.div
         aria-hidden
         style={bgStyle}
-        // Anchored to the top so the models' faces never get cropped. Phones
-        // (tall frame) shift right so the front model sits clear of the red
-        // headline block; wider screens show the full width centered.
-        className="absolute -inset-[6%] bg-cover bg-[position:58%_top] will-change-transform md:bg-[position:center_top]"
+        // Anchored to the top so the models' faces never get cropped. The 6%
+        // overscan only exists for the desktop mouse parallax, so phones skip
+        // it and show more of the photo.
+        className="absolute inset-0 bg-cover bg-top will-change-transform md:-inset-[6%]"
       />
 
       {/* Brand red wash from the start edge + darken for legibility */}
@@ -82,7 +84,7 @@ export default function HeroPhoto({
       />
 
       {/* Content — left aligned, upright display, as in the design */}
-      <div className="relative mx-auto flex min-h-[74vh] max-w-[1440px] flex-col justify-center px-8 py-20 md:min-h-[760px] md:py-32">
+      <div className="relative mx-auto flex min-h-[460px] max-w-[1440px] flex-col justify-center px-8 py-12 md:min-h-[760px] md:py-32">
         <div className="max-w-2xl">
           <motion.h1
             initial={{ y: 28, opacity: 0 }}
