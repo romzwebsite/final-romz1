@@ -46,6 +46,29 @@ export function productColors(product: Product): ProductColor[] {
   ];
 }
 
+/**
+ * The category a product is being viewed in: the given one when the product
+ * belongs to it (e.g. the category page it was opened from), else its primary.
+ */
+export function productCategoryContext(product: Product, categorySlug?: string | null) {
+  return categorySlug && product.categories.includes(categorySlug)
+    ? categorySlug
+    : product.category;
+}
+
+/**
+ * Keeps only the images meant for that category context. Untagged images show
+ * everywhere; if the filter would leave nothing, all images are kept.
+ */
+export function withCategoryImages(product: Product, categorySlug?: string | null): Product {
+  const context = productCategoryContext(product, categorySlug);
+  const images = product.images.filter(
+    (image) => !image.categories?.length || image.categories.includes(context)
+  );
+  if (images.length === 0 || images.length === product.images.length) return product;
+  return { ...product, images };
+}
+
 const normHex = (value?: string) => value?.trim().toLowerCase() ?? "";
 
 const imageMatchesColor = (imageColor: string | undefined, colorHex: string) =>

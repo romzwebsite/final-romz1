@@ -15,6 +15,10 @@ export interface ProductImage {
   backendUrl?: string;
   publicId?: string;
   color?: string; // hex of the color this image belongs to
+  /** Category slugs this image is shown in; empty/undefined = every category. */
+  categories?: string[];
+  /** Admin editor only: the same tags as category ids (what the API stores). */
+  categoryIds?: string[];
 }
 
 export interface Category {

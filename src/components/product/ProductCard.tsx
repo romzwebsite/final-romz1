@@ -11,7 +11,14 @@ import { lt } from "@/lib/format";
 import { productColors } from "@/lib/product";
 import type { Locale, Product } from "@/lib/types";
 
-export default function ProductCard({ product }: { product: Product }) {
+export default function ProductCard({
+  product,
+  categorySlug,
+}: {
+  product: Product;
+  /** Category being browsed; carried to the product page so it shows the same images. */
+  categorySlug?: string;
+}) {
   const locale = useLocale() as Locale;
   const t = useTranslations("product");
 
@@ -108,7 +115,11 @@ export default function ProductCard({ product }: { product: Product }) {
       {/* Stretched link makes the whole card clickable while the color swatches
           above (higher z-index) stay independently interactive. */}
       <Link
-        href={`/product/${product.slug}`}
+        href={
+          categorySlug && product.categories.includes(categorySlug)
+            ? `/product/${product.slug}?category=${encodeURIComponent(categorySlug)}`
+            : `/product/${product.slug}`
+        }
         aria-label={lt(product.name, locale)}
         className="absolute inset-0 z-10"
       />

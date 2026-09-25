@@ -4,6 +4,7 @@ import { getProductBySlug, getProductReviews, getRelatedProducts } from "@/lib/a
 import { getStorefrontSettings } from "@/lib/storefrontSettings";
 import { Link } from "@/i18n/navigation";
 import { lt } from "@/lib/format";
+import { productCategoryContext, withCategoryImages } from "@/lib/product";
 import type { Locale } from "@/lib/types";
 import Rating from "@/components/ui/Rating";
 import SectionHeading from "@/components/ui/SectionHeading";
@@ -14,15 +15,26 @@ import { BadgeCheck } from "lucide-react";
 
 export default async function ProductPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string; slug: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const { locale: rawLocale, slug } = await params;
+  const { category: requestedCategory } = await searchParams;
   setRequestLocale(rawLocale);
   const locale = rawLocale as Locale;
 
-  const product = await getProductBySlug(slug);
-  if (!product) notFound();
+  const found = await getProductBySlug(slug);
+  if (!found) notFound();
+
+  // Products in several categories can have different photos per category;
+  // show the set for the category the shopper came from (?category=slug).
+  const categoryContext = productCategoryContext(
+    found,
+    typeof requestedCategory === "string" ? requestedCategory : null
+  );
+  const product = withCategoryImages(found, categoryContext);
 
   const settings = await getStorefrontSettings();
 
@@ -50,8 +62,8 @@ export default async function ProductPage({
           {tc("home")}
         </Link>
         <span className="mx-2 text-navy/30">/</span>
-        <Link href={`/category/${product.category}`} className="hover:text-brand">
-          {product.category}
+        <Link href={`/category/${categoryContext}`} className="hover:text-brand">
+          {categoryContext}
         </Link>
         <span className="mx-2 text-navy/30">/</span>
         <span className="text-navy">{lt(product.name, locale)}</span>
@@ -62,7 +74,7 @@ export default async function ProductPage({
       {related.length > 0 && (
         <section className="mt-20 md:mt-28">
           <SectionHeading title={t("related")} ghost="MORE" />
-          <ProductGrid products={related} className="mt-10" />
+          <ProductGrid products={related} className="mt-10" categorySlug={categoryContext} />
         </section>
       )}
 

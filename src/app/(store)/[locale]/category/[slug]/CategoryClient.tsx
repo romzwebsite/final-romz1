@@ -336,7 +336,11 @@ export default function CategoryClient({
             <p className="py-20 text-center text-muted">{t("noResults")}</p>
           ) : (
             <>
-              <ProductGrid products={paged} columns={3} />
+              <ProductGrid
+                products={paged}
+                columns={3}
+                categorySlug={subSlug ?? category.slug}
+              />
 
               {/* Pagination */}
               {pageCount > 1 && (

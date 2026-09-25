@@ -144,10 +144,20 @@ export default function ProductEditor({
     badges: [...product.badges],
     active: true,
   }));
-  const [images, setImages] = useState(product.images);
+  // Images carry their category tags as slugs; the editor works with ids.
+  const withCategoryIds = (imgs: Product["images"]) =>
+    imgs.map((image) => ({
+      ...image,
+      categoryIds: (image.categories ?? [])
+        .map((s) => categories.find((c) => c.slug === s)?.id)
+        .filter((x): x is string => Boolean(x)),
+    }));
+  const [images, setImages] = useState(() => withCategoryIds(product.images));
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   // Color hex chosen for each new device file (aligned to imageFiles order).
   const [imageFileColors, setImageFileColors] = useState<(string | undefined)[]>([]);
+  // Category ids chosen for each new device file (aligned to imageFiles order).
+  const [imageFileCategoryIds, setImageFileCategoryIds] = useState<string[][]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Object-URL previews for device files, revoked when the list changes.
@@ -182,6 +192,7 @@ export default function ProductEditor({
     const added = valid.slice(0, room);
     setImageFiles((fs) => [...fs, ...added]);
     setImageFileColors((cs) => [...cs, ...added.map(() => undefined)]);
+    setImageFileCategoryIds((cs) => [...cs, ...added.map(() => [])]);
     if (valid.length > room) {
       setMessage({ kind: "error", text: `Only ${MAX_IMAGES} images allowed; extras were skipped.` });
     }
@@ -274,6 +285,62 @@ export default function ProductEditor({
   const removeImageFile = (index: number) => {
     setImageFiles((fs) => fs.filter((_, j) => j !== index));
     setImageFileColors((cs) => cs.filter((_, j) => j !== index));
+    setImageFileCategoryIds((cs) => cs.filter((_, j) => j !== index));
+  };
+
+  const toggleId = (ids: string[] | undefined, id: string) =>
+    ids?.includes(id) ? ids.filter((x) => x !== id) : [...(ids ?? []), id];
+
+  const toggleImageCategory = (index: number, id: string) =>
+    setImages((imgs) =>
+      imgs.map((im, j) =>
+        j === index ? { ...im, categoryIds: toggleId(im.categoryIds, id) } : im
+      )
+    );
+
+  const toggleFileCategory = (index: number, id: string) =>
+    setImageFileCategoryIds((cs) =>
+      cs.map((ids, j) => (j === index ? toggleId(ids, id) : ids))
+    );
+
+  // The product's own categories — the only ones an image can be tagged with.
+  const productCategoryOptions = categoryOptions
+    .filter((c) => form.categoryIds.includes(c.id))
+    .map((c) => ({ id: c.id, label: c.label.replace(/^— /, "") }));
+
+  // Per-image "show in" chips; only relevant once the product is in 2+ categories.
+  const renderCategoryPicker = (
+    value: string[] | undefined,
+    onToggle: (id: string) => void
+  ) => {
+    if (productCategoryOptions.length < 2) return null;
+    const selected = (value ?? []).filter((id) =>
+      productCategoryOptions.some((c) => c.id === id)
+    );
+    return (
+      <div className="mt-1.5">
+        <p className="text-[9px] font-bold uppercase leading-tight text-muted">
+          {selected.length ? "Show in" : "Show in: all categories"}
+        </p>
+        <div className="mt-1 flex flex-wrap gap-1">
+          {productCategoryOptions.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => onToggle(c.id)}
+              className={clsx(
+                "border px-1.5 py-0.5 text-[9px] font-extrabold uppercase cursor-pointer",
+                selected.includes(c.id)
+                  ? "border-brand bg-brand text-white"
+                  : "border-navy/20 text-navy hover:border-navy"
+              )}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   // Swatch row for tagging an image with one of the variant colors (or none).
@@ -452,6 +519,7 @@ export default function ProductEditor({
     images,
     imageFiles: preparedImageFiles,
     imageFileColors,
+    imageFileCategoryIds,
     variants: flattenVariants(),
     isActive: form.active,
     sizeChart,
@@ -507,9 +575,10 @@ export default function ProductEditor({
       } else {
         await updateProduct(product.id, savePayload);
         const refreshed = await getAdminProduct(product.id);
-        setImages(refreshed.images);
+        setImages(withCategoryIds(refreshed.images));
         setImageFiles([]);
         setImageFileColors([]);
+        setImageFileCategoryIds([]);
         setColorGroups(groupVariants(refreshed.variants));
         setSizeChart(cloneSizeChart(refreshed.sizeChart));
         setFabricCare(cloneFabricCare(refreshed.fabricCare));
@@ -721,6 +790,9 @@ export default function ProductEditor({
                     className="aspect-square w-full object-cover"
                   />
                   {renderColorPicker(img.color, (hex) => setImageColor(i, hex))}
+                  {renderCategoryPicker(img.categoryIds, (id) =>
+                    toggleImageCategory(i, id)
+                  )}
                 </div>
               ))}
 
@@ -753,6 +825,9 @@ export default function ProductEditor({
                   />
                   {renderColorPicker(imageFileColors[i], (hex) =>
                     setFileColor(i, hex)
+                  )}
+                  {renderCategoryPicker(imageFileCategoryIds[i], (id) =>
+                    toggleFileCategory(i, id)
                   )}
                 </div>
               ))}

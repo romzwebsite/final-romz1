@@ -238,6 +238,7 @@ export interface ProductPayload {
   images: ProductImage[]; // existing hosted images to keep (each may carry a color hex)
   imageFiles?: File[]; // new images picked from the admin's device
   imageFileColors?: (string | undefined)[]; // color hex per new file (aligned to imageFiles)
+  imageFileCategoryIds?: string[][]; // category ids per new file (aligned to imageFiles)
   variants: Variant[];
   isActive: boolean;
   sizeChart: SizeChart; // localized measurement table (empty chart clears it)
@@ -266,6 +267,7 @@ function productFormData(
       url: image.backendUrl ?? image.url,
       publicId: image.publicId ?? "",
       color: image.color ?? "",
+      categories: image.categoryIds ?? [],
     }));
     fd.set("existingImages", JSON.stringify(existingImages));
   }
@@ -276,6 +278,12 @@ function productFormData(
       "imageColors",
       JSON.stringify(
         imageFiles.map((_, index) => payload.imageFileColors?.[index] ?? "")
+      )
+    );
+    fd.set(
+      "imageCategories",
+      JSON.stringify(
+        imageFiles.map((_, index) => payload.imageFileCategoryIds?.[index] ?? [])
       )
     );
   }

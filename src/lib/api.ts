@@ -163,6 +163,7 @@ interface BeImage {
   url: string;
   publicId?: string;
   color?: string;
+  categories?: string[]; // category ids (not populated)
 }
 
 const loc = (value: BeLocalized | string | null | undefined): LocalizedText =>
@@ -340,6 +341,12 @@ export const mapProduct = (p: BeProduct): Product => {
   // to the single primary category. Always includes the primary, deduped.
   const extra = Array.isArray(p.categories) ? p.categories.map(catSlug) : [];
   const categories = [...new Set([primary, ...extra].filter(Boolean))];
+  // Image category tags come back as ids; translate them via the populated
+  // product categories so the storefront can work with slugs throughout.
+  const slugById = new Map<string, string>();
+  for (const c of [p.category, ...(p.categories ?? [])]) {
+    if (typeof c === "object" && c !== null) slugById.set(String(c._id), c.slug);
+  }
   return {
   id: p._id,
   slug: p.slug,
@@ -354,6 +361,9 @@ export const mapProduct = (p: BeProduct): Product => {
     backendUrl: image.url,
     publicId: image.publicId,
     color: image.color,
+    categories: (image.categories ?? [])
+      .map((id) => slugById.get(String(id)))
+      .filter((slug): slug is string => Boolean(slug)),
   })),
   variants: (p.variants ?? []).map((v) => ({
     id: v._id ?? "",
