@@ -62,7 +62,7 @@ export default function HeroPhoto({
       onMouseLeave={reset}
       // Phones get a shorter hero: a tall 74vh frame cropped the landscape
       // photo down to a narrow zoomed-in slice of one model.
-      className="relative min-h-[460px] overflow-hidden bg-navy-deep md:min-h-[760px]"
+      className="relative min-h-[520px] overflow-hidden bg-navy-deep md:min-h-[760px]"
     >
       {/* Full-bleed photo (cover, like the design) */}
       <motion.div
@@ -83,8 +83,9 @@ export default function HeroPhoto({
         style={{ clipPath: "polygon(0 0, 72% 0, 50% 100%, 0 100%)" }}
       />
 
-      {/* Content — left aligned, upright display, as in the design */}
-      <div className="relative mx-auto flex min-h-[460px] max-w-[1440px] flex-col justify-center px-8 py-12 md:min-h-[760px] md:py-32">
+      {/* Content — left aligned, upright display, as in the design. On phones
+          it sits at the bottom so it stays below the models' faces. */}
+      <div className="relative mx-auto flex min-h-[520px] max-w-[1440px] flex-col justify-end px-8 pb-10 pt-12 md:min-h-[760px] md:justify-center md:py-32">
         <div className="max-w-2xl">
           <motion.h1
             initial={{ y: 28, opacity: 0 }}
