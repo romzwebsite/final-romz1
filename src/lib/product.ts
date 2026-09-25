@@ -57,16 +57,23 @@ export function productCategoryContext(product: Product, categorySlug?: string |
 }
 
 /**
- * Keeps only the images meant for that category context. Untagged images show
- * everywhere; if the filter would leave nothing, all images are kept.
+ * Keeps only the images meant for that category context (untagged images show
+ * everywhere; if the filter would leave nothing, all images are kept) and puts
+ * the image the admin picked as that category's main image first.
  */
 export function withCategoryImages(product: Product, categorySlug?: string | null): Product {
   const context = productCategoryContext(product, categorySlug);
-  const images = product.images.filter(
+  const filtered = product.images.filter(
     (image) => !image.categories?.length || image.categories.includes(context)
   );
-  if (images.length === 0 || images.length === product.images.length) return product;
-  return { ...product, images };
+  const pool = filtered.length ? filtered : product.images;
+  const main = pool.find((image) => image.mainFor?.includes(context));
+  const images = main ? [main, ...pool.filter((image) => image !== main)] : pool;
+
+  const unchanged =
+    images.length === product.images.length &&
+    images.every((image, i) => image === product.images[i]);
+  return unchanged ? product : { ...product, images };
 }
 
 const normHex = (value?: string) => value?.trim().toLowerCase() ?? "";

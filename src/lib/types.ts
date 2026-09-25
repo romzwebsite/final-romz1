@@ -19,6 +19,10 @@ export interface ProductImage {
   categories?: string[];
   /** Admin editor only: the same tags as category ids (what the API stores). */
   categoryIds?: string[];
+  /** Category slugs where this is the main (card) image. */
+  mainFor?: string[];
+  /** Admin editor only: `mainFor` as category ids. */
+  mainForIds?: string[];
 }
 
 export interface Category {

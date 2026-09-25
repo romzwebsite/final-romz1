@@ -239,6 +239,7 @@ export interface ProductPayload {
   imageFiles?: File[]; // new images picked from the admin's device
   imageFileColors?: (string | undefined)[]; // color hex per new file (aligned to imageFiles)
   imageFileCategoryIds?: string[][]; // category ids per new file (aligned to imageFiles)
+  imageFileMainForIds?: string[][]; // categories each new file is the main image of
   variants: Variant[];
   isActive: boolean;
   sizeChart: SizeChart; // localized measurement table (empty chart clears it)
@@ -268,6 +269,7 @@ function productFormData(
       publicId: image.publicId ?? "",
       color: image.color ?? "",
       categories: image.categoryIds ?? [],
+      mainFor: image.mainForIds ?? [],
     }));
     fd.set("existingImages", JSON.stringify(existingImages));
   }
@@ -284,6 +286,12 @@ function productFormData(
       "imageCategories",
       JSON.stringify(
         imageFiles.map((_, index) => payload.imageFileCategoryIds?.[index] ?? [])
+      )
+    );
+    fd.set(
+      "imageMainFor",
+      JSON.stringify(
+        imageFiles.map((_, index) => payload.imageFileMainForIds?.[index] ?? [])
       )
     );
   }

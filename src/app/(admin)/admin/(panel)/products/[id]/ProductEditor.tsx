@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Upload, X } from "lucide-react";
+import { Plus, Star, Trash2, Upload, X } from "lucide-react";
 import clsx from "clsx";
 import {
   createProduct,
@@ -145,12 +145,15 @@ export default function ProductEditor({
     active: true,
   }));
   // Images carry their category tags as slugs; the editor works with ids.
+  const slugsToIds = (slugs: string[] | undefined) =>
+    (slugs ?? [])
+      .map((s) => categories.find((c) => c.slug === s)?.id)
+      .filter((x): x is string => Boolean(x));
   const withCategoryIds = (imgs: Product["images"]) =>
     imgs.map((image) => ({
       ...image,
-      categoryIds: (image.categories ?? [])
-        .map((s) => categories.find((c) => c.slug === s)?.id)
-        .filter((x): x is string => Boolean(x)),
+      categoryIds: slugsToIds(image.categories),
+      mainForIds: slugsToIds(image.mainFor),
     }));
   const [images, setImages] = useState(() => withCategoryIds(product.images));
   const [imageFiles, setImageFiles] = useState<File[]>([]);
@@ -158,6 +161,8 @@ export default function ProductEditor({
   const [imageFileColors, setImageFileColors] = useState<(string | undefined)[]>([]);
   // Category ids chosen for each new device file (aligned to imageFiles order).
   const [imageFileCategoryIds, setImageFileCategoryIds] = useState<string[][]>([]);
+  // Categories each new device file is the main image of (aligned to imageFiles).
+  const [imageFileMainForIds, setImageFileMainForIds] = useState<string[][]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Object-URL previews for device files, revoked when the list changes.
@@ -193,6 +198,7 @@ export default function ProductEditor({
     setImageFiles((fs) => [...fs, ...added]);
     setImageFileColors((cs) => [...cs, ...added.map(() => undefined)]);
     setImageFileCategoryIds((cs) => [...cs, ...added.map(() => [])]);
+    setImageFileMainForIds((cs) => [...cs, ...added.map(() => [])]);
     if (valid.length > room) {
       setMessage({ kind: "error", text: `Only ${MAX_IMAGES} images allowed; extras were skipped.` });
     }
@@ -286,32 +292,87 @@ export default function ProductEditor({
     setImageFiles((fs) => fs.filter((_, j) => j !== index));
     setImageFileColors((cs) => cs.filter((_, j) => j !== index));
     setImageFileCategoryIds((cs) => cs.filter((_, j) => j !== index));
+    setImageFileMainForIds((cs) => cs.filter((_, j) => j !== index));
   };
 
   const toggleId = (ids: string[] | undefined, id: string) =>
     ids?.includes(id) ? ids.filter((x) => x !== id) : [...(ids ?? []), id];
+  const without = (ids: string[] | undefined, id: string) =>
+    (ids ?? []).filter((x) => x !== id);
 
+  // Un-tagging a category also drops the image as that category's main image.
   const toggleImageCategory = (index: number, id: string) =>
     setImages((imgs) =>
-      imgs.map((im, j) =>
-        j === index ? { ...im, categoryIds: toggleId(im.categoryIds, id) } : im
-      )
+      imgs.map((im, j) => {
+        if (j !== index) return im;
+        const removing = im.categoryIds?.includes(id);
+        return {
+          ...im,
+          categoryIds: toggleId(im.categoryIds, id),
+          mainForIds: removing ? without(im.mainForIds, id) : im.mainForIds,
+        };
+      })
     );
 
-  const toggleFileCategory = (index: number, id: string) =>
+  const toggleFileCategory = (index: number, id: string) => {
+    const removing = imageFileCategoryIds[index]?.includes(id);
     setImageFileCategoryIds((cs) =>
       cs.map((ids, j) => (j === index ? toggleId(ids, id) : ids))
     );
+    if (removing) {
+      setImageFileMainForIds((cs) =>
+        cs.map((ids, j) => (j === index ? without(ids, id) : ids))
+      );
+    }
+  };
+
+  // ★ Main image per category: one image per category across saved + new
+  // images. Picking a new one clears the previous; picking it again unsets it.
+  // A main image is also shown in that category if it has category tags.
+  const setMainImage = (target: { file: boolean; index: number }, id: string) => {
+    const isTarget = (file: boolean, index: number) =>
+      target.file === file && target.index === index;
+    const alreadyMain = target.file
+      ? imageFileMainForIds[target.index]?.includes(id)
+      : images[target.index]?.mainForIds?.includes(id);
+    const addShowIn = (ids: string[] | undefined) =>
+      ids?.length && !ids.includes(id) ? [...ids, id] : ids ?? [];
+
+    setImages((imgs) =>
+      imgs.map((im, j) =>
+        isTarget(false, j)
+          ? {
+              ...im,
+              mainForIds: alreadyMain ? without(im.mainForIds, id) : [...without(im.mainForIds, id), id],
+              categoryIds: alreadyMain ? im.categoryIds : addShowIn(im.categoryIds),
+            }
+          : { ...im, mainForIds: without(im.mainForIds, id) }
+      )
+    );
+    setImageFileMainForIds((cs) =>
+      cs.map((ids, j) =>
+        isTarget(true, j) && !alreadyMain ? [...without(ids, id), id] : without(ids, id)
+      )
+    );
+    if (target.file && !alreadyMain) {
+      setImageFileCategoryIds((cs) =>
+        cs.map((ids, j) => (j === target.index ? addShowIn(ids) : ids))
+      );
+    }
+  };
 
   // The product's own categories — the only ones an image can be tagged with.
   const productCategoryOptions = categoryOptions
     .filter((c) => form.categoryIds.includes(c.id))
     .map((c) => ({ id: c.id, label: c.label.replace(/^— /, "") }));
 
-  // Per-image "show in" chips; only relevant once the product is in 2+ categories.
+  // Per-image "show in" chips plus a ★ to make it that category's main image;
+  // only relevant once the product is in 2+ categories.
   const renderCategoryPicker = (
     value: string[] | undefined,
-    onToggle: (id: string) => void
+    mainFor: string[] | undefined,
+    onToggle: (id: string) => void,
+    onMain: (id: string) => void
   ) => {
     if (productCategoryOptions.length < 2) return null;
     const selected = (value ?? []).filter((id) =>
@@ -320,24 +381,43 @@ export default function ProductEditor({
     return (
       <div className="mt-1.5">
         <p className="text-[9px] font-bold uppercase leading-tight text-muted">
-          {selected.length ? "Show in" : "Show in: all categories"}
+          {selected.length ? "Show in" : "Show in: all categories"} · ★ = main
         </p>
         <div className="mt-1 flex flex-wrap gap-1">
-          {productCategoryOptions.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => onToggle(c.id)}
-              className={clsx(
-                "border px-1.5 py-0.5 text-[9px] font-extrabold uppercase cursor-pointer",
-                selected.includes(c.id)
-                  ? "border-brand bg-brand text-white"
-                  : "border-navy/20 text-navy hover:border-navy"
-              )}
-            >
-              {c.label}
-            </button>
-          ))}
+          {productCategoryOptions.map((c) => {
+            const isMain = mainFor?.includes(c.id);
+            return (
+              <div key={c.id} className="flex">
+                <button
+                  type="button"
+                  onClick={() => onToggle(c.id)}
+                  className={clsx(
+                    "border px-1.5 py-0.5 text-[9px] font-extrabold uppercase cursor-pointer",
+                    selected.includes(c.id)
+                      ? "border-brand bg-brand text-white"
+                      : "border-navy/20 text-navy hover:border-navy"
+                  )}
+                >
+                  {c.label}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onMain(c.id)}
+                  title={isMain ? `Main image in ${c.label}` : `Make main image in ${c.label}`}
+                  aria-label={`Main image in ${c.label}`}
+                  aria-pressed={isMain}
+                  className={clsx(
+                    "flex items-center border border-s-0 px-1 cursor-pointer",
+                    isMain
+                      ? "border-amber bg-amber text-navy"
+                      : "border-navy/20 text-navy/40 hover:text-navy"
+                  )}
+                >
+                  <Star size={10} fill={isMain ? "currentColor" : "none"} />
+                </button>
+              </div>
+            );
+          })}
         </div>
       </div>
     );
@@ -520,6 +600,7 @@ export default function ProductEditor({
     imageFiles: preparedImageFiles,
     imageFileColors,
     imageFileCategoryIds,
+    imageFileMainForIds,
     variants: flattenVariants(),
     isActive: form.active,
     sizeChart,
@@ -579,6 +660,7 @@ export default function ProductEditor({
         setImageFiles([]);
         setImageFileColors([]);
         setImageFileCategoryIds([]);
+        setImageFileMainForIds([]);
         setColorGroups(groupVariants(refreshed.variants));
         setSizeChart(cloneSizeChart(refreshed.sizeChart));
         setFabricCare(cloneFabricCare(refreshed.fabricCare));
@@ -790,8 +872,11 @@ export default function ProductEditor({
                     className="aspect-square w-full object-cover"
                   />
                   {renderColorPicker(img.color, (hex) => setImageColor(i, hex))}
-                  {renderCategoryPicker(img.categoryIds, (id) =>
-                    toggleImageCategory(i, id)
+                  {renderCategoryPicker(
+                    img.categoryIds,
+                    img.mainForIds,
+                    (id) => toggleImageCategory(i, id),
+                    (id) => setMainImage({ file: false, index: i }, id)
                   )}
                 </div>
               ))}
@@ -826,8 +911,11 @@ export default function ProductEditor({
                   {renderColorPicker(imageFileColors[i], (hex) =>
                     setFileColor(i, hex)
                   )}
-                  {renderCategoryPicker(imageFileCategoryIds[i], (id) =>
-                    toggleFileCategory(i, id)
+                  {renderCategoryPicker(
+                    imageFileCategoryIds[i],
+                    imageFileMainForIds[i],
+                    (id) => toggleFileCategory(i, id),
+                    (id) => setMainImage({ file: true, index: i }, id)
                   )}
                 </div>
               ))}

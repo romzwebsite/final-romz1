@@ -164,6 +164,7 @@ interface BeImage {
   publicId?: string;
   color?: string;
   categories?: string[]; // category ids (not populated)
+  mainFor?: string[]; // category ids where this is the main image
 }
 
 const loc = (value: BeLocalized | string | null | undefined): LocalizedText =>
@@ -362,6 +363,9 @@ export const mapProduct = (p: BeProduct): Product => {
     publicId: image.publicId,
     color: image.color,
     categories: (image.categories ?? [])
+      .map((id) => slugById.get(String(id)))
+      .filter((slug): slug is string => Boolean(slug)),
+    mainFor: (image.mainFor ?? [])
       .map((id) => slugById.get(String(id)))
       .filter((slug): slug is string => Boolean(slug)),
   })),
