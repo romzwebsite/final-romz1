@@ -10,6 +10,7 @@ import CartDrawer from "@/components/cart/CartDrawer";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import PromoBar from "@/components/layout/PromoBar";
+import MetaPixel from "@/components/analytics/MetaPixel";
 import { getCategoryTree } from "@/lib/api";
 import { getStorefrontSettings } from "@/lib/storefrontSettings";
 import type { Category } from "@/lib/types";
@@ -92,6 +93,8 @@ export default async function StoreLayout({
             </CartProvider>
           </AuthProvider>
         </NextIntlClientProvider>
+        {/* Storefront only — the admin panel has its own layout and isn't tracked. */}
+        <MetaPixel />
       </body>
     </html>
   );

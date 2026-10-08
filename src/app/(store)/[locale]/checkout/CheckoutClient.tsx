@@ -19,6 +19,7 @@ import {
   type ValidatedCart,
 } from "@/lib/api";
 import { savePendingOrder } from "@/lib/payment";
+import { pixelCartParams, trackPixel } from "@/lib/pixel";
 import type {
   Governorate,
   Locale,
@@ -164,6 +165,21 @@ export default function CheckoutClient({
     : validatedCart
       ? backendTotal
       : 0;
+
+  // Meta Pixel: one InitiateCheckout per checkout visit, as soon as the
+  // persisted cart has loaded (it hydrates from localStorage after mount).
+  const initiatedCheckout = useRef(false);
+  useEffect(() => {
+    if (initiatedCheckout.current || items.length === 0) return;
+    initiatedCheckout.current = true;
+    trackPixel(
+      "InitiateCheckout",
+      pixelCartParams(
+        items.map((i) => ({ id: i.productId, quantity: i.qty, item_price: i.unitPrice })),
+        items.reduce((sum, i) => sum + i.qty * i.unitPrice, 0)
+      )
+    );
+  }, [items]);
 
   const validationItems = useMemo(
     () =>
@@ -451,7 +467,20 @@ export default function CheckoutClient({
         return;
       }
 
-      // COD: order is confirmed immediately.
+      // COD: order is confirmed immediately. (Card orders report Purchase from
+      // the payment callback page, once the backend confirms the payment.)
+      trackPixel(
+        "Purchase",
+        pixelCartParams(
+          validatedCart.items.map((item) => ({
+            id: item.product,
+            quantity: item.qty,
+            item_price: item.unitPrice,
+          })),
+          order.total
+        ),
+        { eventID: order.orderNumber }
+      );
       setConfirmedInfo({ name: form.firstName, email: form.email });
       setConfirmedOrder(order.orderNumber);
       clear();

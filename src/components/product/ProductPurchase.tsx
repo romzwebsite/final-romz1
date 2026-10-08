@@ -10,6 +10,7 @@ import { useCart } from "@/components/cart/CartProvider";
 import SizeChartModal, { hasSizeChart } from "@/components/product/SizeChartModal";
 import { lt } from "@/lib/format";
 import { orderSizes } from "@/lib/product";
+import { pixelCartParams, trackPixel } from "@/lib/pixel";
 import type { Locale, Product, ProductColor } from "@/lib/types";
 
 export default function ProductPurchase({
@@ -30,7 +31,7 @@ export default function ProductPurchase({
   const t = useTranslations("product");
   const locale = useLocale() as Locale;
   const router = useRouter();
-  const { addItem } = useCart();
+  const { addItem, items: cartItems } = useCart();
 
   const [size, setSize] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
@@ -91,6 +92,10 @@ export default function ProductPurchase({
       return;
     }
     if (!cartVariant || !selectedColor) return;
+    // The cart caps each line at the variant's stock, so only report the units
+    // that actually get added (none when that size is already maxed out).
+    const alreadyInCart = cartItems.find((i) => i.sku === cartVariant.sku)?.qty ?? 0;
+    const addedQty = Math.max(0, Math.min(qty, cartVariant.stock - alreadyInCart));
     addItem({
       productId: product.id,
       variantId: cartVariant.id,
@@ -109,6 +114,15 @@ export default function ProductPurchase({
         product.images[0]?.url,
       maxStock: cartVariant.stock,
     });
+    if (addedQty > 0) {
+      trackPixel("AddToCart", {
+        ...pixelCartParams(
+          [{ id: product.id, quantity: addedQty, item_price: unitPrice }],
+          unitPrice * addedQty
+        ),
+        content_name: product.name.en,
+      });
+    }
     return true;
   };
 

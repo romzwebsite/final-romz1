@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import clsx from "clsx";
 import Rating from "@/components/ui/Rating";
@@ -10,6 +10,7 @@ import ProductGallery from "@/components/product/ProductGallery";
 import ProductPurchase from "@/components/product/ProductPurchase";
 import { lt } from "@/lib/format";
 import { productColors } from "@/lib/product";
+import { PIXEL_CURRENCY, trackPixel } from "@/lib/pixel";
 import type { Locale, Product, ShippingReturns } from "@/lib/types";
 
 export default function ProductView({
@@ -27,6 +28,18 @@ export default function ProductView({
   // Desktop hover preview — falls back to the selected color for the image.
   const [previewHex, setPreviewHex] = useState<string | null>(null);
   const [priceOverride, setPriceOverride] = useState<number | null>(null);
+
+  // Meta Pixel: one ViewContent per product page view.
+  const viewPrice = product.salePrice ?? product.basePrice;
+  useEffect(() => {
+    trackPixel("ViewContent", {
+      content_type: "product",
+      content_ids: [product.id],
+      content_name: product.name.en,
+      value: viewPrice,
+      currency: PIXEL_CURRENCY,
+    });
+  }, [product.id, product.name.en, viewPrice]);
 
   const salePercent =
     product.salePrice !== null &&

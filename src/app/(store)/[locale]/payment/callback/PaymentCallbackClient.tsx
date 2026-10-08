@@ -6,6 +6,7 @@ import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { btn } from "@/components/ui/Button";
 import { trackOrder } from "@/lib/api";
+import { pixelCartParams, trackPixel } from "@/lib/pixel";
 import {
   clearPendingOrder,
   readPendingOrder,
@@ -53,6 +54,21 @@ export default function PaymentCallbackClient() {
         if (result) {
           if (result.paymentStatus === "paid") {
             stopped.current = true;
+            // Meta Pixel: card orders count as a Purchase only once the backend
+            // confirms payment. The pending order is cleared right after, so a
+            // reload of this page can't report the same order twice.
+            trackPixel(
+              "Purchase",
+              pixelCartParams(
+                result.items.map((item) => ({
+                  id: item.productId,
+                  quantity: item.qty,
+                  item_price: item.unitPrice,
+                })),
+                result.total
+              ),
+              { eventID: result.orderNumber }
+            );
             clearPendingOrder();
             setPhase("paid");
             return;
