@@ -1,6 +1,17 @@
+import { cache } from "react";
+import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getProductBySlug, getProductReviews, getRelatedProducts } from "@/lib/api";
+import {
+  CATALOG_BRAND,
+  catalogImages,
+  catalogText,
+  productJsonLd,
+  productPageUrl,
+  siteOrigin,
+} from "@/lib/catalog";
 import { getStorefrontSettings } from "@/lib/storefrontSettings";
 import { Link } from "@/i18n/navigation";
 import { lt } from "@/lib/format";
@@ -12,6 +23,42 @@ import ProductGrid from "@/components/product/ProductGrid";
 import ProductView from "@/components/product/ProductView";
 import ReviewForm from "@/components/product/ReviewForm";
 import { BadgeCheck } from "lucide-react";
+
+// One product fetch per request, shared by generateMetadata and the page (the
+// backend counts a view on every fetch).
+const getProduct = cache(getProductBySlug);
+
+// Title, description and Open Graph tags: link previews on WhatsApp/Facebook
+// show the product photo, and Meta's catalog tools read the product details.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string; slug: string }>;
+}): Promise<Metadata> {
+  const { locale: rawLocale, slug } = await params;
+  const locale = rawLocale as Locale;
+  const product = await getProduct(slug);
+  if (!product) return {};
+
+  const origin = siteOrigin(await headers());
+  const name = catalogText(product.name, locale);
+  const description = catalogText(product.description, locale).slice(0, 300) || name;
+  const url = productPageUrl(origin, product.slug, locale);
+  return {
+    title: `${name} — ${CATALOG_BRAND}`,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: "website",
+      siteName: CATALOG_BRAND,
+      url,
+      title: name,
+      description,
+      locale: locale === "ar" ? "ar_EG" : "en_US",
+      images: catalogImages(product).slice(0, 4).map((image) => ({ url: image })),
+    },
+  };
+}
 
 export default async function ProductPage({
   params,
@@ -25,8 +72,9 @@ export default async function ProductPage({
   setRequestLocale(rawLocale);
   const locale = rawLocale as Locale;
 
-  const found = await getProductBySlug(slug);
+  const found = await getProduct(slug);
   if (!found) notFound();
+  const jsonLd = productJsonLd(found, siteOrigin(await headers()), locale);
 
   // Products in several categories can have different photos per category;
   // show the set for the category the shopper came from (?category=slug).
@@ -56,6 +104,14 @@ export default async function ProductPage({
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 md:py-14">
+      {/* schema.org Product (Meta catalog via the pixel, search engines).
+          `<` is escaped so product text can never close the script tag. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
+        }}
+      />
       {/* Breadcrumb */}
       <nav className="mb-5 text-xs font-bold uppercase tracking-wider text-muted">
         <Link href="/" className="hover:text-brand">

@@ -501,6 +501,22 @@ export async function getProducts(filters: ProductFilters = {}): Promise<Product
   return products.map(mapProduct);
 }
 
+/**
+ * Every active product, paging through the API (100 per page, its maximum).
+ * Used by the Meta catalog feed, which must list the whole store.
+ */
+export async function getAllProducts(): Promise<Product[]> {
+  const all: BeProduct[] = [];
+  for (let page = 1; page <= 50; page++) {
+    const body = await apiRequest<{ products: BeProduct[] }>(
+      `/products?limit=100&page=${page}`
+    );
+    all.push(...(body.data?.products ?? []));
+    if (page >= (body.meta?.pages ?? 1)) break;
+  }
+  return all.map(mapProduct);
+}
+
 export async function getProductBySlug(slug: string): Promise<Product | undefined> {
   try {
     const { product } = await apiFetch<{ product: BeProduct }>(
