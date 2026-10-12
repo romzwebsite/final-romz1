@@ -24,9 +24,13 @@ import ProductView from "@/components/product/ProductView";
 import ReviewForm from "@/components/product/ReviewForm";
 import { BadgeCheck } from "lucide-react";
 
-// One product fetch per request, shared by generateMetadata and the page (the
-// backend counts a view on every fetch).
-const getProduct = cache(getProductBySlug);
+// The page fetch counts the product view. Metadata reads the product without
+// counting one: Next.js also renders it for link prefetches (a product card
+// scrolling into view), while the page itself only renders on a real visit.
+const getProduct = cache((slug: string) => getProductBySlug(slug));
+const getProductForMetadata = cache((slug: string) =>
+  getProductBySlug(slug, { countView: false })
+);
 
 // Title, description and Open Graph tags: link previews on WhatsApp/Facebook
 // show the product photo, and Meta's catalog tools read the product details.
@@ -37,7 +41,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale: rawLocale, slug } = await params;
   const locale = rawLocale as Locale;
-  const product = await getProduct(slug);
+  const product = await getProductForMetadata(slug);
   if (!product) return {};
 
   const origin = siteOrigin(await headers());

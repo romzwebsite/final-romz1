@@ -517,10 +517,14 @@ export async function getAllProducts(): Promise<Product[]> {
   return all.map(mapProduct);
 }
 
-export async function getProductBySlug(slug: string): Promise<Product | undefined> {
+/** `countView: false` reads the product without bumping its view counter. */
+export async function getProductBySlug(
+  slug: string,
+  { countView = true }: { countView?: boolean } = {}
+): Promise<Product | undefined> {
   try {
     const { product } = await apiFetch<{ product: BeProduct }>(
-      `/products/${encodeURIComponent(slug)}`
+      `/products/${encodeURIComponent(slug)}${countView ? "" : "?view=0"}`
     );
     return mapProduct(product);
   } catch (error) {
