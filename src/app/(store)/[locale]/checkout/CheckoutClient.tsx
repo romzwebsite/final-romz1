@@ -19,7 +19,7 @@ import {
   type ValidatedCart,
 } from "@/lib/api";
 import { savePendingOrder } from "@/lib/payment";
-import { pixelCartParams, trackPixel } from "@/lib/pixel";
+import { pixelCartParams, pixelServerTracking, trackPixel } from "@/lib/pixel";
 import type {
   Governorate,
   Locale,
@@ -424,6 +424,8 @@ export default function CheckoutClient({
             })),
             couponCode: validatedCart.discount.couponCode || undefined,
             paymentMethod: form.payment,
+            // For the server-side Purchase (Meta Conversions API).
+            tracking: pixelServerTracking(),
           },
           token
         )

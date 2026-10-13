@@ -957,6 +957,8 @@ export interface CreateOrderInput {
   items: { product: string; variantId: string; qty: number }[];
   couponCode?: string;
   paymentMethod: PaymentMethod;
+  /** Meta pixel cookies + checkout URL for the server-side (Conversions API) Purchase. */
+  tracking?: { fbp: string; fbc: string; eventSourceUrl: string };
 }
 
 export interface CreateOrderResult {
@@ -989,6 +991,7 @@ export async function createOrder(
       })),
       couponCode: input.couponCode ?? "",
       paymentMethod: input.paymentMethod,
+      ...(input.tracking ? { tracking: input.tracking } : {}),
     }),
   });
 

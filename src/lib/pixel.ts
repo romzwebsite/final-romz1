@@ -26,6 +26,35 @@ declare global {
 
 export const PIXEL_CURRENCY = "EGP";
 
+/**
+ * Browser signals the backend needs for the Conversions API Purchase: the
+ * pixel's _fbp / _fbc cookies and the page the purchase happens on.
+ */
+export function pixelServerTracking() {
+  if (typeof document === "undefined") return { fbp: "", fbc: "", eventSourceUrl: "" };
+  // Called inside checkout's submit: must never throw (e.g. on a malformed cookie)
+  // or send a value over the order API's limits, which would reject the order.
+  const cookie = (name: string, maxLength: number) => {
+    const raw =
+      document.cookie
+        .split("; ")
+        .find((c) => c.startsWith(`${name}=`))
+        ?.slice(name.length + 1) ?? "";
+    let value = raw;
+    try {
+      value = decodeURIComponent(raw);
+    } catch {}
+    value = value.trim();
+    return value.length <= maxLength ? value : "";
+  };
+  const url = `${window.location.origin}${window.location.pathname}`;
+  return {
+    fbp: cookie("_fbp", 200),
+    fbc: cookie("_fbc", 500),
+    eventSourceUrl: url.length <= 1000 ? url : "",
+  };
+}
+
 export function trackPixel(
   event: PixelEvent,
   params: Record<string, unknown>,
