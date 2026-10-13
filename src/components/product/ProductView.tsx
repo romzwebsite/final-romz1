@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import clsx from "clsx";
 import Rating from "@/components/ui/Rating";
@@ -9,8 +9,16 @@ import Accordion from "@/components/ui/Accordion";
 import ProductGallery from "@/components/product/ProductGallery";
 import ProductPurchase from "@/components/product/ProductPurchase";
 import { lt } from "@/lib/format";
-import { productColors } from "@/lib/product";
-import { PIXEL_CURRENCY, trackPixel } from "@/lib/pixel";
+import { orderSizes, productColors } from "@/lib/product";
+import {
+  PIXEL_CURRENCY,
+  isPageReload,
+  lastTracked,
+  newPixelEventId,
+  rememberTracked,
+  trackPixel,
+  trackPixelAndServer,
+} from "@/lib/pixel";
 import type { Locale, Product, ShippingReturns } from "@/lib/types";
 
 export default function ProductView({
@@ -29,18 +37,51 @@ export default function ProductView({
   const [previewHex, setPreviewHex] = useState<string | null>(null);
   const [priceOverride, setPriceOverride] = useState<number | null>(null);
 
-  // Meta Pixel: one ViewContent per product page view. No size is picked yet,
-  // so it reports the product id, which is the catalog's item_group_id.
-  const viewPrice = product.salePrice ?? product.basePrice;
+  // Meta Pixel + Conversions API: one ViewContent per product page view, for
+  // the variant the page opens on (first color, first size in stock) — its SKU
+  // is that variant's id in the catalog. A refresh doesn't count as a new view.
+  const viewVariant = useMemo(() => {
+    const hex = colors[0]?.hex.trim().toLowerCase();
+    const ofColor = product.variants.filter((v) => v.color.hex.trim().toLowerCase() === hex);
+    const pool = ofColor.length > 0 ? ofColor : product.variants;
+    const sizes = orderSizes(pool.map((v) => v.size));
+    const ordered = [...pool].sort((a, b) => sizes.indexOf(a.size) - sizes.indexOf(b.size));
+    return ordered.find((v) => v.stock > 0) ?? ordered[0];
+  }, [product.variants, colors]);
+  const viewSku = viewVariant?.sku;
+  const viewPrice = viewVariant?.priceOverride ?? product.salePrice ?? product.basePrice;
+  const viewedProduct = useRef<string | null>(null);
   useEffect(() => {
-    trackPixel("ViewContent", {
-      content_type: "product_group",
-      content_ids: [product.id],
-      content_name: product.name.en,
-      value: viewPrice,
-      currency: PIXEL_CURRENCY,
-    });
-  }, [product.id, product.name.en, viewPrice]);
+    if (viewedProduct.current === product.id) return;
+    viewedProduct.current = product.id;
+    if (isPageReload() && lastTracked("view") === product.id) return;
+    rememberTracked("view", product.id);
+
+    if (!viewSku) {
+      // No variants to report: the product id is the catalog's item_group_id.
+      trackPixel("ViewContent", {
+        content_type: "product_group",
+        content_ids: [product.id],
+        content_name: product.name.en,
+        value: viewPrice,
+        currency: PIXEL_CURRENCY,
+      });
+      return;
+    }
+    trackPixelAndServer(
+      "ViewContent",
+      {
+        content_type: "product",
+        content_ids: [viewSku],
+        contents: [{ id: viewSku, quantity: 1, item_price: viewPrice }],
+        content_name: product.name.en,
+        value: viewPrice,
+        currency: PIXEL_CURRENCY,
+      },
+      newPixelEventId("vc"),
+      [{ sku: viewSku, qty: 1 }]
+    );
+  }, [product.id, product.name.en, viewSku, viewPrice]);
 
   const salePercent =
     product.salePrice !== null &&

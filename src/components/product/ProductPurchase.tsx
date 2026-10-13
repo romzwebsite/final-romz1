@@ -10,7 +10,7 @@ import { useCart } from "@/components/cart/CartProvider";
 import SizeChartModal, { hasSizeChart } from "@/components/product/SizeChartModal";
 import { lt } from "@/lib/format";
 import { orderSizes } from "@/lib/product";
-import { pixelCartParams, trackPixel } from "@/lib/pixel";
+import { newPixelEventId, pixelCartParams, trackPixelAndServer } from "@/lib/pixel";
 import type { Locale, Product, ProductColor } from "@/lib/types";
 
 export default function ProductPurchase({
@@ -115,13 +115,19 @@ export default function ProductPurchase({
       maxStock: cartVariant.stock,
     });
     if (addedQty > 0) {
-      trackPixel("AddToCart", {
-        ...pixelCartParams(
-          [{ id: cartVariant.sku, quantity: addedQty, item_price: unitPrice }],
-          unitPrice * addedQty
-        ),
-        content_name: product.name.en,
-      });
+      // Browser pixel + Conversions API, one eventID per add.
+      trackPixelAndServer(
+        "AddToCart",
+        {
+          ...pixelCartParams(
+            [{ id: cartVariant.sku, quantity: addedQty, item_price: unitPrice }],
+            unitPrice * addedQty
+          ),
+          content_name: product.name.en,
+        },
+        newPixelEventId("atc"),
+        [{ sku: cartVariant.sku, qty: addedQty }]
+      );
     }
     return true;
   };

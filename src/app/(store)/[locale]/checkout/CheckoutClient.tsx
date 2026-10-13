@@ -19,7 +19,15 @@ import {
   type ValidatedCart,
 } from "@/lib/api";
 import { savePendingOrder } from "@/lib/payment";
-import { pixelCartParams, pixelServerTracking, trackPixel } from "@/lib/pixel";
+import {
+  lastTracked,
+  newPixelEventId,
+  pixelCartParams,
+  pixelServerTracking,
+  rememberTracked,
+  trackPixel,
+  trackPixelAndServer,
+} from "@/lib/pixel";
 import type {
   Governorate,
   Locale,
@@ -166,18 +174,27 @@ export default function CheckoutClient({
       ? backendTotal
       : 0;
 
-  // Meta Pixel: one InitiateCheckout per checkout visit, as soon as the
-  // persisted cart has loaded (it hydrates from localStorage after mount).
+  // Meta Pixel + Conversions API: one InitiateCheckout per cart, as soon as the
+  // persisted cart has loaded (it hydrates from localStorage after mount). A
+  // refresh or a return to checkout with the same cart isn't reported again.
   const initiatedCheckout = useRef(false);
   useEffect(() => {
     if (initiatedCheckout.current || items.length === 0) return;
     initiatedCheckout.current = true;
-    trackPixel(
+    const cartKey = items
+      .map((i) => `${i.sku}:${i.qty}`)
+      .sort()
+      .join("|");
+    if (lastTracked("checkout") === cartKey) return;
+    rememberTracked("checkout", cartKey);
+    trackPixelAndServer(
       "InitiateCheckout",
       pixelCartParams(
         items.map((i) => ({ id: i.sku, quantity: i.qty, item_price: i.unitPrice })),
         items.reduce((sum, i) => sum + i.qty * i.unitPrice, 0)
-      )
+      ),
+      newPixelEventId("ic"),
+      items.map((i) => ({ sku: i.sku, qty: i.qty }))
     );
   }, [items]);
 
@@ -483,6 +500,8 @@ export default function CheckoutClient({
         ),
         { eventID: order.orderNumber }
       );
+      // A later checkout, even with the same items, is a new InitiateCheckout.
+      rememberTracked("checkout", "");
       setConfirmedInfo({ name: form.firstName, email: form.email });
       setConfirmedOrder(order.orderNumber);
       clear();

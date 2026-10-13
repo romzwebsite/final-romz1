@@ -6,7 +6,7 @@ import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { btn } from "@/components/ui/Button";
 import { trackOrder } from "@/lib/api";
-import { pixelCartParams, trackPixel } from "@/lib/pixel";
+import { pixelCartParams, rememberTracked, trackPixel } from "@/lib/pixel";
 import {
   clearPendingOrder,
   readPendingOrder,
@@ -69,6 +69,8 @@ export default function PaymentCallbackClient() {
               ),
               { eventID: result.orderNumber }
             );
+            // A later checkout, even with the same items, is a new InitiateCheckout.
+            rememberTracked("checkout", "");
             clearPendingOrder();
             setPhase("paid");
             return;

@@ -21,6 +21,9 @@ export interface AuthSession {
   refreshToken?: string;
 }
 
+/** localStorage key of the signed-in customer's AuthSession (AuthProvider). */
+export const CUSTOMER_STORAGE_KEY = "romz_customer";
+
 interface Envelope<T> {
   success: boolean;
   message: string;

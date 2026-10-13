@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import {
+  CUSTOMER_STORAGE_KEY,
   loginAccount,
   logoutAccount,
   refreshSession,
@@ -19,7 +20,7 @@ import {
 } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
 
-const STORAGE_KEY = "romz_customer";
+const STORAGE_KEY = CUSTOMER_STORAGE_KEY;
 
 interface AuthContextValue {
   user: AuthUser | null;
