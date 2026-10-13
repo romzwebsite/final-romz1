@@ -182,11 +182,15 @@ export function rememberTracked(key: string, value: string) {
   } catch {}
 }
 
-/** True when this page load is the shopper refreshing the page. */
+/**
+ * True when the shopper refreshed the page they're on now (not when they
+ * refreshed another page and then navigated here client-side).
+ */
 export function isPageReload() {
   try {
     const [nav] = performance.getEntriesByType("navigation") as PerformanceNavigationTiming[];
-    return nav?.type === "reload";
+    const withoutHash = (url: string) => url.split("#")[0];
+    return nav?.type === "reload" && withoutHash(nav.name) === withoutHash(window.location.href);
   } catch {
     return false;
   }
