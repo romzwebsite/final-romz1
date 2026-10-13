@@ -48,7 +48,10 @@ export function trackPixel(
   }
 }
 
-/** Standard e-commerce params from a list of line items. */
+/**
+ * Standard e-commerce params from a list of line items. Line ids are variant
+ * SKUs — the item ids in the Meta catalog feed (lib/catalog).
+ */
 export function pixelCartParams(contents: PixelContent[], value: number) {
   return {
     content_type: "product",

@@ -29,11 +29,12 @@ export default function ProductView({
   const [previewHex, setPreviewHex] = useState<string | null>(null);
   const [priceOverride, setPriceOverride] = useState<number | null>(null);
 
-  // Meta Pixel: one ViewContent per product page view.
+  // Meta Pixel: one ViewContent per product page view. No size is picked yet,
+  // so it reports the product id, which is the catalog's item_group_id.
   const viewPrice = product.salePrice ?? product.basePrice;
   useEffect(() => {
     trackPixel("ViewContent", {
-      content_type: "product",
+      content_type: "product_group",
       content_ids: [product.id],
       content_name: product.name.en,
       value: viewPrice,

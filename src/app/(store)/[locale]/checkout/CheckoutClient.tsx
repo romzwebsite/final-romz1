@@ -175,7 +175,7 @@ export default function CheckoutClient({
     trackPixel(
       "InitiateCheckout",
       pixelCartParams(
-        items.map((i) => ({ id: i.productId, quantity: i.qty, item_price: i.unitPrice })),
+        items.map((i) => ({ id: i.sku, quantity: i.qty, item_price: i.unitPrice })),
         items.reduce((sum, i) => sum + i.qty * i.unitPrice, 0)
       )
     );
@@ -473,7 +473,7 @@ export default function CheckoutClient({
         "Purchase",
         pixelCartParams(
           validatedCart.items.map((item) => ({
-            id: item.product,
+            id: item.sku,
             quantity: item.qty,
             item_price: item.unitPrice,
           })),

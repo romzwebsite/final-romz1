@@ -3,20 +3,21 @@ import {
   CATALOG_BRAND,
   catalogImages,
   catalogPrice,
-  catalogSalePrice,
   catalogText,
-  productInStock,
   productPageUrl,
   siteOrigin,
+  variantImages,
+  variantPricing,
 } from "@/lib/catalog";
-import type { Locale, Product } from "@/lib/types";
+import type { Locale, Product, Variant } from "@/lib/types";
 
 // Meta Commerce Manager product feed (RSS 2.0 with g: fields, the format Meta
 // and Google Merchant Center both accept). Add it in Commerce Manager as a
 // scheduled data feed so the catalog refreshes itself from the live store:
 //   https://www.romz.net/api/feeds/meta-catalog          (English)
 //   https://www.romz.net/api/feeds/meta-catalog?lang=ar  (Arabic language feed)
-// One item per product; g:id is the product id, matching the pixel's content_ids.
+// One item per variant: g:id is the variant SKU and g:item_group_id the product
+// id, matching the pixel's content_ids (see lib/catalog for the full scheme).
 
 export const dynamic = "force-dynamic";
 
@@ -36,24 +37,34 @@ const xml = (value: string) =>
 
 const tag = (name: string, value: string) => `    <g:${name}>${xml(value)}</g:${name}>\n`;
 
-function itemXml(p: Product, origin: string, locale: Locale, categoryName: (slug: string) => string) {
-  const images = catalogImages(p);
+function itemXml(
+  p: Product,
+  v: Variant,
+  origin: string,
+  locale: Locale,
+  categoryName: (slug: string) => string
+) {
+  // The variant's color photos first, so each color shows its own picture.
+  const images = variantImages(p, v.color.hex);
   const title = catalogText(p.name, locale).slice(0, MAX_TITLE);
   const description = (catalogText(p.description, locale) || title).slice(0, MAX_DESCRIPTION);
-  const sale = catalogSalePrice(p);
+  const { price, sale } = variantPricing(p, v);
   const categoryNames = p.categories.map(categoryName).filter(Boolean);
 
   let out = "  <item>\n";
-  out += tag("id", p.id);
+  out += tag("id", v.sku);
+  out += tag("item_group_id", p.id);
   out += tag("title", title);
   out += tag("description", description);
   out += tag("link", productPageUrl(origin, p.slug, locale));
   out += tag("image_link", images[0]);
   for (const extra of images.slice(1, 1 + MAX_EXTRA_IMAGES)) out += tag("additional_image_link", extra);
-  out += tag("availability", productInStock(p) ? "in stock" : "out of stock");
+  out += tag("availability", v.stock > 0 ? "in stock" : "out of stock");
   out += tag("condition", "new");
-  out += tag("price", catalogPrice(p.basePrice));
+  out += tag("price", catalogPrice(price));
   if (sale !== null) out += tag("sale_price", catalogPrice(sale));
+  out += tag("color", catalogText(v.color.name, locale));
+  out += tag("size", v.size);
   out += tag("brand", CATALOG_BRAND);
   out += tag("google_product_category", "Apparel & Accessories > Clothing");
   if (categoryNames[0]) out += tag("product_type", categoryNames[0]);
@@ -78,10 +89,15 @@ export async function GET(request: Request) {
     return new Response("Catalog temporarily unavailable", { status: 503 });
   }
 
-  // Meta rejects items without a photo, so those are left out of the feed.
+  // Meta rejects items without a photo, so those products are left out.
+  const categoryName = (slug: string) => names.get(slug) ?? "";
   const items = products
     .filter((p) => catalogImages(p).length > 0)
-    .map((p) => itemXml(p, origin, locale, (slug) => names.get(slug) ?? ""))
+    .flatMap((p) =>
+      p.variants
+        .filter((v) => v.sku.trim())
+        .map((v) => itemXml(p, v, origin, locale, categoryName))
+    )
     .join("");
 
   const body =

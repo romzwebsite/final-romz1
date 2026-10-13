@@ -61,7 +61,7 @@ export default function PaymentCallbackClient() {
               "Purchase",
               pixelCartParams(
                 result.items.map((item) => ({
-                  id: item.productId,
+                  id: item.sku,
                   quantity: item.qty,
                   item_price: item.unitPrice,
                 })),

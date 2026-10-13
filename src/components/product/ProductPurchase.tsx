@@ -117,7 +117,7 @@ export default function ProductPurchase({
     if (addedQty > 0) {
       trackPixel("AddToCart", {
         ...pixelCartParams(
-          [{ id: product.id, quantity: addedQty, item_price: unitPrice }],
+          [{ id: cartVariant.sku, quantity: addedQty, item_price: unitPrice }],
           unitPrice * addedQty
         ),
         content_name: product.name.en,
