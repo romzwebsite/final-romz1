@@ -9,7 +9,7 @@ import {
   deleteCollection,
   updateCollection,
 } from "@/lib/adminApi";
-import type { Collection, Product } from "@/lib/types";
+import type { Category, Collection, Product } from "@/lib/types";
 
 const inputCls =
   "w-full border-2 border-navy/15 bg-white px-3 py-2.5 text-sm text-navy outline-none focus:border-brand transition-colors";
@@ -24,6 +24,7 @@ interface FormState {
   nameAr: string;
   productIds: string[];
   bundlePrice: number;
+  category: string;
 }
 
 const emptyForm: FormState = {
@@ -31,14 +32,17 @@ const emptyForm: FormState = {
   nameAr: "",
   productIds: [],
   bundlePrice: 0,
+  category: "",
 };
 
 export default function CollectionsClient({
   collections,
   products,
+  categories,
 }: {
   collections: Collection[];
   products: Product[];
+  categories: Category[];
 }) {
   const router = useRouter();
   const [creating, setCreating] = useState(false);
@@ -89,6 +93,7 @@ export default function CollectionsClient({
       nameAr: c.name.ar,
       productIds: c.products.map((p) => p.id),
       bundlePrice: c.bundlePrice,
+      category: c.category?.id ?? "",
     });
     setSearch("");
     setError(null);
@@ -115,6 +120,7 @@ export default function CollectionsClient({
         name: { en: form.nameEn.trim(), ar: form.nameAr.trim() },
         products: form.productIds,
         bundlePrice: form.bundlePrice,
+        category: form.category,
       };
       if (form.id) {
         await updateCollection(form.id, payload);
@@ -205,6 +211,22 @@ export default function CollectionsClient({
                 className={inputCls}
               />
             </div>
+          </div>
+
+          <div className="mt-4 sm:max-w-xs">
+            <label className={labelCls}>Category (optional)</label>
+            <select
+              value={form.category}
+              onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+              className={inputCls}
+            >
+              <option value="">— None —</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name.en}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="mt-4">

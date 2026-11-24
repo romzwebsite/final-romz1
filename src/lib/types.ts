@@ -371,6 +371,8 @@ export interface Collection {
   bundlePrice: number;
   /** Sum of the products' current prices (for the "you save" display). */
   originalTotal: number;
+  /** Optional category the collection belongs to. */
+  category?: { id: string; name: LocalizedText; slug: string } | null;
   isActive: boolean;
   order?: number;
 }

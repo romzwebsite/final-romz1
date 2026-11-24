@@ -1011,6 +1011,7 @@ interface BeCollection {
   products?: BeProduct[];
   bundlePrice: number;
   originalTotal?: number;
+  category?: { _id: string; name: BeLocalized; slug: string } | null;
   isActive?: boolean;
   order?: number;
 }
@@ -1028,6 +1029,9 @@ const mapCollection = (c: BeCollection): Collection => ({
       (sum, p) => sum + (p.salePrice ?? p.basePrice ?? 0),
       0
     ),
+  category: c.category
+    ? { id: c.category._id, name: loc(c.category.name), slug: c.category.slug }
+    : null,
   isActive: c.isActive ?? true,
   order: c.order,
 });

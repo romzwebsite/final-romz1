@@ -8,7 +8,6 @@ import ProductGrid from "@/components/product/ProductGrid";
 import Reveal from "@/components/motion/Reveal";
 import Hero from "@/components/home/Hero";
 import CategoryTiles from "@/components/home/CategoryTiles";
-import CollectionsSection from "@/components/home/CollectionsSection";
 import CompleteTheFit from "@/components/home/CompleteTheFit";
 import ReviewsSection from "@/components/home/ReviewsSection";
 import FaqSection from "@/components/home/FaqSection";
@@ -56,9 +55,7 @@ export default async function HomePage({
         )}
       </section>
 
-      <CategoryTiles categories={categories} />
-
-      <CollectionsSection collections={collections} locale={locale as Locale} />
+      <CategoryTiles categories={categories} collections={collections} />
 
       {/* Best Sellers */}
       <section className="mx-auto max-w-[1440px] px-6 py-16 md:py-24">
