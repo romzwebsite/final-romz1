@@ -1,5 +1,5 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { getHomeData } from "@/lib/api";
+import { getHomeData, getCollections } from "@/lib/api";
 import { getStorefrontSettings } from "@/lib/storefrontSettings";
 import { Link } from "@/i18n/navigation";
 import { btn } from "@/components/ui/Button";
@@ -8,9 +8,11 @@ import ProductGrid from "@/components/product/ProductGrid";
 import Reveal from "@/components/motion/Reveal";
 import Hero from "@/components/home/Hero";
 import CategoryTiles from "@/components/home/CategoryTiles";
+import CollectionsSection from "@/components/home/CollectionsSection";
 import CompleteTheFit from "@/components/home/CompleteTheFit";
 import ReviewsSection from "@/components/home/ReviewsSection";
 import FaqSection from "@/components/home/FaqSection";
+import type { Collection, Locale } from "@/lib/types";
 
 export default async function HomePage({
   params,
@@ -22,6 +24,12 @@ export default async function HomePage({
   const t = await getTranslations("sections");
   const [{ newArrivals, bestSellers, categories, reviews }, settings] =
     await Promise.all([getHomeData(), getStorefrontSettings()]);
+  let collections: Collection[] = [];
+  try {
+    collections = await getCollections();
+  } catch {
+    collections = [];
+  }
 
   return (
     <>
@@ -49,6 +57,8 @@ export default async function HomePage({
       </section>
 
       <CategoryTiles categories={categories} />
+
+      <CollectionsSection collections={collections} locale={locale as Locale} />
 
       {/* Best Sellers */}
       <section className="mx-auto max-w-[1440px] px-6 py-16 md:py-24">

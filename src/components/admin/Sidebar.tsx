@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Image as ImageIcon,
+  Layers,
   LayoutGrid,
   LogOut,
   Mail,
@@ -21,6 +22,7 @@ import { clearAdminToken, readAdminRefreshToken } from "@/lib/adminApi";
 const items = [
   { label: "Dashboard", href: "/admin", icon: LayoutGrid },
   { label: "Products", href: "/admin/products", icon: Package },
+  { label: "Collections", href: "/admin/collections", icon: Layers },
   { label: "Categories", href: "/admin/categories", icon: Shapes },
   { label: "Orders", href: "/admin/orders", icon: ShoppingCart },
   { label: "Reviews", href: "/admin/reviews", icon: Star },

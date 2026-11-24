@@ -205,6 +205,7 @@ export default function CheckoutClient({
         variantId: item.variantId || undefined,
         sku: item.sku,
         qty: item.qty,
+        ...(item.collectionId ? { collectionId: item.collectionId } : {}),
       })),
     [items]
   );
@@ -438,6 +439,7 @@ export default function CheckoutClient({
               product: item.product,
               variantId: item.variantId,
               qty: item.qty,
+              ...(item.collectionId ? { collectionId: item.collectionId } : {}),
             })),
             // bogo promos are auto-applied server-side; don't echo the internal
             // promo code back (it would route through the strict code path).
@@ -960,6 +962,14 @@ export default function CheckoutClient({
                   : "—"}
             </span>
           </div>
+          {(validatedCart?.collectionDiscount ?? 0) > 0 && (
+            <div className="flex justify-between text-brand">
+              <span>{locale === "ar" ? "خصم الكولكشن" : "Collection bundle"}</span>
+              <span>
+                -{formatEGP(validatedCart?.collectionDiscount ?? 0, locale)}
+              </span>
+            </div>
+          )}
           {(validatedCart?.discount.amount ?? 0) > 0 && (
             <div className="flex justify-between text-brand">
               <span>

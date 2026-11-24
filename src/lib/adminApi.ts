@@ -461,6 +461,36 @@ export async function deleteCoupon(id: string): Promise<void> {
   await adminFetch(`/coupons/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
+// ── Collections ─────────────────────────────────────────
+
+export interface CollectionPayload {
+  name: { ar: string; en: string };
+  slug?: string;
+  description?: { ar: string; en: string };
+  products: string[];
+  bundlePrice: number;
+  isActive?: boolean;
+  order?: number;
+}
+
+export async function createCollection(payload: CollectionPayload): Promise<void> {
+  await adminFetch("/collections", { method: "POST", json: payload });
+}
+
+export async function updateCollection(
+  id: string,
+  payload: Partial<CollectionPayload>
+): Promise<void> {
+  await adminFetch(`/collections/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    json: payload,
+  });
+}
+
+export async function deleteCollection(id: string): Promise<void> {
+  await adminFetch(`/collections/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
 // ── Contact ─────────────────────────────────────────────
 // The public POST /contact lives in ./api. These admin reads/writes run in the
 // browser with the login-cookie Bearer token. Never exposed on the storefront.

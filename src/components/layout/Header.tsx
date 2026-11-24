@@ -75,6 +75,13 @@ export default function Header({ categories = [] }: { categories?: Category[] })
           ))}
 
           <Link
+            href="/collections"
+            className="text-sm font-extrabold uppercase text-navy hover:text-brand transition-colors"
+          >
+            {isRtl ? "الكولكشنز" : "Collections"}
+          </Link>
+
+          <Link
             href="/track-order"
             className="text-sm font-extrabold uppercase text-navy hover:text-brand transition-colors"
           >

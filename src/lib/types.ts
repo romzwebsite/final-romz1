@@ -354,4 +354,23 @@ export interface CartItem {
   unitPrice: number;
   image?: string;
   maxStock: number;
+  /** Set when this line was added as part of a collection bundle. */
+  collectionId?: string;
+  /** Collection display info, carried for grouping in the cart. */
+  collectionName?: LocalizedText;
+  collectionBundlePrice?: number;
+}
+
+/** A curated set of existing products sold together at one bundle price. */
+export interface Collection {
+  id: string;
+  slug: string;
+  name: LocalizedText;
+  description?: LocalizedText;
+  products: Product[];
+  bundlePrice: number;
+  /** Sum of the products' current prices (for the "you save" display). */
+  originalTotal: number;
+  isActive: boolean;
+  order?: number;
 }
