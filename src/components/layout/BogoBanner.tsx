@@ -17,16 +17,11 @@ export default function BogoBanner({
   const headline = ar
     ? `اشترِ ${promo.buyQuantity} والأرخص ${promo.freeQuantity} ببلاش`
     : `Buy ${promo.buyQuantity}, get ${promo.freeQuantity} free`;
-  const sub = ar
-    ? "بيتطبّق تلقائيًا على السلة — من غير كود"
-    : "Applied automatically at checkout — no code needed";
 
   return (
     <div className="bg-brand px-4 py-1.5 text-center text-white">
       <p className="whitespace-nowrap text-[10px] font-extrabold uppercase tracking-wide md:text-[11px]">
         🎁 {headline}
-        <span className="mx-1 opacity-70">·</span>
-        <span className="font-semibold normal-case opacity-90">{sub}</span>
       </p>
     </div>
   );
