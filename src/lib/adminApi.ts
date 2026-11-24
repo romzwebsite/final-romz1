@@ -432,7 +432,8 @@ export async function deleteCategory(id: string): Promise<void> {
 // ── Coupons ─────────────────────────────────────────────
 
 export interface CouponPayload {
-  code: string;
+  /** Required for percent/fixed. Omitted for bogo — the server generates one. */
+  code?: string;
   type: "percent" | "fixed" | "bogo";
   value?: number;
   /** Buy X Get Y coupons only. */
