@@ -866,16 +866,37 @@ export interface ValidatedCart {
   items: ValidatedCartItem[];
   unavailableItems: UnavailableCartItem[];
   subtotal: number;
-  discount: { couponCode: string; amount: number };
+  discount: {
+    couponCode: string;
+    amount: number;
+    /** "percent" | "fixed" | "bogo" | "" — lets the UI label the discount. */
+    type?: string;
+    buyQuantity?: number | null;
+    freeQuantity?: number | null;
+  };
   total: number;
   isValid: boolean;
+}
+
+/** The active Buy X Get Y promo surfaced to the storefront, or null. */
+export interface ActivePromo {
+  type: "bogo";
+  buyQuantity: number;
+  freeQuantity: number;
+  minOrderTotal: number;
 }
 
 const mapValidatedCart = (cart: {
   items?: BeValidatedCartItem[];
   unavailableItems?: BeUnavailableCartItem[];
   subtotal?: number;
-  discount?: { couponCode?: string; amount?: number };
+  discount?: {
+    couponCode?: string;
+    amount?: number;
+    type?: string;
+    buyQuantity?: number | null;
+    freeQuantity?: number | null;
+  };
   total?: number;
   isValid?: boolean;
 }): ValidatedCart => ({
@@ -911,10 +932,26 @@ const mapValidatedCart = (cart: {
   discount: {
     couponCode: cart.discount?.couponCode ?? "",
     amount: cart.discount?.amount ?? 0,
+    type: cart.discount?.type ?? "",
+    buyQuantity: cart.discount?.buyQuantity ?? null,
+    freeQuantity: cart.discount?.freeQuantity ?? null,
   },
   total: cart.total ?? 0,
   isValid: cart.isValid ?? false,
 });
+
+/** Fetch the active Buy X Get Y promo for the storefront (null when none). */
+export async function getActivePromo(): Promise<ActivePromo | null> {
+  try {
+    const { promo } = await apiFetch<{ promo: ActivePromo | null }>(
+      "/coupons/active-promo"
+    );
+    return promo && promo.type === "bogo" ? promo : null;
+  } catch {
+    // The promo is a non-critical enhancement — never block rendering on it.
+    return null;
+  }
+}
 
 export async function validateCart(
   input: {

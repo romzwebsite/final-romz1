@@ -7,14 +7,29 @@ import { Link } from "@/i18n/navigation";
 import { useCart } from "./CartProvider";
 import SuggestedProducts from "./SuggestedProducts";
 import { formatEGP, lt } from "@/lib/format";
+import { computeBogo } from "@/lib/bogo";
 import { btn } from "@/components/ui/Button";
 import type { Locale } from "@/lib/types";
 
 export default function CartDrawer() {
   const t = useTranslations("cart");
   const locale = useLocale() as Locale;
+  const ar = locale === "ar";
   const reducedMotion = useReducedMotion();
-  const { items, subtotal, isOpen, setOpen, updateQty, removeItem } = useCart();
+  const { items, subtotal, isOpen, setOpen, updateQty, removeItem, activePromo } =
+    useCart();
+
+  // Buy X Get Y preview (the authoritative total is computed at checkout).
+  const bogo = activePromo
+    ? computeBogo(
+        items.map((i) => ({ unitPrice: i.unitPrice, qty: i.qty })),
+        activePromo.buyQuantity,
+        activePromo.freeQuantity
+      )
+    : null;
+  const minMet = !activePromo || subtotal >= activePromo.minOrderTotal;
+  const showBogoDiscount = !!bogo && minMet && bogo.discount > 0;
+  const promoTotal = showBogoDiscount ? Math.max(0, subtotal - bogo!.discount) : subtotal;
 
   // Slide from the logical end side: right in LTR, left in RTL.
   const closedX = locale === "ar" ? "-100%" : "100%";
@@ -129,6 +144,35 @@ export default function CartDrawer() {
             </div>
 
             <div className="border-t border-navy/10 p-5">
+              {activePromo && (
+                <div className="mb-3 border-2 border-brand/30 bg-brand/5 px-3 py-2">
+                  <p className="text-xs font-extrabold uppercase tracking-wide text-brand">
+                    🎁{" "}
+                    {ar
+                      ? `اشترِ ${activePromo.buyQuantity} والأرخص ${activePromo.freeQuantity} ببلاش`
+                      : `Buy ${activePromo.buyQuantity}, get ${activePromo.freeQuantity} free`}
+                  </p>
+                  {showBogoDiscount ? (
+                    <p className="mt-0.5 text-[11px] font-bold text-navy">
+                      {ar
+                        ? `🎉 ${bogo!.freeUnits} منتج مجانًا في طلبك`
+                        : `🎉 ${bogo!.freeUnits} item(s) free in your order`}
+                    </p>
+                  ) : !minMet ? (
+                    <p className="mt-0.5 text-[11px] text-muted">
+                      {ar
+                        ? `أضف بـ ${formatEGP(activePromo.minOrderTotal - subtotal, locale)} كمان لتفعيل العرض`
+                        : `Spend ${formatEGP(activePromo.minOrderTotal - subtotal, locale)} more to unlock the promo`}
+                    </p>
+                  ) : bogo && bogo.itemsToNextFree > 0 ? (
+                    <p className="mt-0.5 text-[11px] text-muted">
+                      {ar
+                        ? `ضيف ${bogo.itemsToNextFree} منتج كمان والأرخص يبقى ببلاش!`
+                        : `Add ${bogo.itemsToNextFree} more item(s) to get the cheapest free!`}
+                    </p>
+                  ) : null}
+                </div>
+              )}
               <div className="mb-1 flex items-center justify-between">
                 <span className="font-bold uppercase text-sm text-navy">
                   {t("subtotal")}
@@ -137,6 +181,26 @@ export default function CartDrawer() {
                   {formatEGP(subtotal, locale)}
                 </span>
               </div>
+              {showBogoDiscount && (
+                <>
+                  <div className="mb-1 flex items-center justify-between text-brand">
+                    <span className="text-sm font-bold">
+                      {ar ? "خصم العرض" : "Promo discount"}
+                    </span>
+                    <span className="text-sm font-extrabold">
+                      -{formatEGP(bogo!.discount, locale)}
+                    </span>
+                  </div>
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="font-bold uppercase text-sm text-navy">
+                      {ar ? "الإجمالي بعد الخصم" : "Total after discount"}
+                    </span>
+                    <span className="font-extrabold text-lg text-navy">
+                      {formatEGP(promoTotal, locale)}
+                    </span>
+                  </div>
+                </>
+              )}
               <p className="mb-4 text-xs text-muted">{t("shippingNote")}</p>
               <button
                 onClick={() => setOpen(false)}
