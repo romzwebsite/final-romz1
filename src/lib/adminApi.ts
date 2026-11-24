@@ -433,8 +433,12 @@ export async function deleteCategory(id: string): Promise<void> {
 
 export interface CouponPayload {
   code: string;
-  type: "percent" | "fixed";
-  value: number;
+  type: "percent" | "fixed" | "bogo";
+  value?: number;
+  /** Buy X Get Y coupons only. */
+  buyQuantity?: number;
+  /** Buy X Get Y coupons only. */
+  freeQuantity?: number;
   minOrderTotal?: number;
   expiresAt?: string;
   usageLimit?: number;

@@ -14,8 +14,10 @@ const labelCls =
 
 interface FormState {
   code: string;
-  type: "percent" | "fixed";
+  type: "percent" | "fixed" | "bogo";
   value: number;
+  buyQuantity: number;
+  freeQuantity: number;
   minOrderTotal: number;
   usageLimit: number;
 }
@@ -24,6 +26,8 @@ const emptyForm: FormState = {
   code: "",
   type: "percent",
   value: 10,
+  buyQuantity: 2,
+  freeQuantity: 1,
   minOrderTotal: 0,
   usageLimit: 0,
 };
@@ -40,13 +44,20 @@ export default function CouponsClient({ coupons }: { coupons: Coupon[] }) {
       setError("Coupon code is required.");
       return;
     }
-    if (form.value <= 0) {
-      setError("Value must be above zero.");
-      return;
-    }
-    if (form.type === "percent" && form.value > 100) {
-      setError("A percentage discount cannot exceed 100.");
-      return;
+    if (form.type === "bogo") {
+      if (form.buyQuantity < 1 || form.freeQuantity < 1) {
+        setError("Buy and free quantities must be at least 1.");
+        return;
+      }
+    } else {
+      if (form.value <= 0) {
+        setError("Value must be above zero.");
+        return;
+      }
+      if (form.type === "percent" && form.value > 100) {
+        setError("A percentage discount cannot exceed 100.");
+        return;
+      }
     }
     setBusy(true);
     setError(null);
@@ -54,7 +65,9 @@ export default function CouponsClient({ coupons }: { coupons: Coupon[] }) {
       await createCoupon({
         code: form.code.trim().toUpperCase(),
         type: form.type,
-        value: form.value,
+        ...(form.type === "bogo"
+          ? { buyQuantity: form.buyQuantity, freeQuantity: form.freeQuantity }
+          : { value: form.value }),
         ...(form.minOrderTotal > 0 ? { minOrderTotal: form.minOrderTotal } : {}),
         ...(form.usageLimit > 0 ? { usageLimit: form.usageLimit } : {}),
         isActive: true,
@@ -130,7 +143,7 @@ export default function CouponsClient({ coupons }: { coupons: Coupon[] }) {
               <X size={18} />
             </button>
           </div>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
             <div>
               <label className={labelCls}>Code</label>
               <input
@@ -156,19 +169,49 @@ export default function CouponsClient({ coupons }: { coupons: Coupon[] }) {
               >
                 <option value="percent">Percent (%)</option>
                 <option value="fixed">Fixed (EGP)</option>
+                <option value="bogo">Buy X Get Y (free)</option>
               </select>
             </div>
-            <div>
-              <label className={labelCls}>
-                Value {form.type === "percent" ? "(%)" : "(EGP)"}
-              </label>
-              <input
-                type="number"
-                value={form.value}
-                onChange={(e) => setForm((f) => ({ ...f, value: +e.target.value }))}
-                className={inputCls}
-              />
-            </div>
+            {form.type === "bogo" ? (
+              <>
+                <div>
+                  <label className={labelCls}>Buy (qty)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={form.buyQuantity}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, buyQuantity: +e.target.value }))
+                    }
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Get Free (qty)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={form.freeQuantity}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, freeQuantity: +e.target.value }))
+                    }
+                    className={inputCls}
+                  />
+                </div>
+              </>
+            ) : (
+              <div>
+                <label className={labelCls}>
+                  Value {form.type === "percent" ? "(%)" : "(EGP)"}
+                </label>
+                <input
+                  type="number"
+                  value={form.value}
+                  onChange={(e) => setForm((f) => ({ ...f, value: +e.target.value }))}
+                  className={inputCls}
+                />
+              </div>
+            )}
             <div>
               <label className={labelCls}>Min Order (0 = none)</label>
               <input
@@ -192,6 +235,14 @@ export default function CouponsClient({ coupons }: { coupons: Coupon[] }) {
               />
             </div>
           </div>
+          {form.type === "bogo" && (
+            <p className="mt-3 text-xs text-muted">
+              Buy {form.buyQuantity || 0} &amp; get {form.freeQuantity || 0} free — the
+              customer pays for the most expensive items and the cheapest{" "}
+              {form.freeQuantity || 0} of every {(form.buyQuantity || 0) + (form.freeQuantity || 0)}{" "}
+              item(s) are free.
+            </p>
+          )}
           {error && <p className="mt-3 text-xs font-bold text-brand">{error}</p>}
           <button
             onClick={submit}
@@ -234,7 +285,11 @@ export default function CouponsClient({ coupons }: { coupons: Coupon[] }) {
                 </td>
                 <td className="px-4 py-3 uppercase text-muted">{c.type}</td>
                 <td className="px-4 py-3 text-end font-extrabold text-navy">
-                  {c.type === "percent" ? `${c.value}%` : `${c.value} EGP`}
+                  {c.type === "percent"
+                    ? `${c.value}%`
+                    : c.type === "bogo"
+                      ? `Buy ${c.buyQuantity ?? "-"} Get ${c.freeQuantity ?? "-"}`
+                      : `${c.value} EGP`}
                 </td>
                 <td className="px-4 py-3 text-end text-muted">
                   {c.minOrderTotal.toLocaleString()} EGP
