@@ -47,7 +47,9 @@ export default function Header({ categories = [] }: { categories?: Category[] })
             {t("newDrop")}
           </Link>
 
-          {categories.map((cat) => (
+          {categories
+            .filter((cat) => cat.slug !== "collections")
+            .map((cat) => (
             <div key={cat.id} className="group relative">
               <Link
                 href={`/category/${cat.slug}`}
@@ -171,7 +173,9 @@ export default function Header({ categories = [] }: { categories?: Category[] })
                   {t("newDrop")}
                 </Link>
 
-                {categories.map((cat) => {
+                {categories
+                  .filter((cat) => cat.slug !== "collections")
+                  .map((cat) => {
                   const hasChildren = !!cat.children && cat.children.length > 0;
                   const isExpanded = expandedCat === cat.id;
                   return (
