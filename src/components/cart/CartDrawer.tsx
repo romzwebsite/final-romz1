@@ -8,6 +8,7 @@ import { useCart } from "./CartProvider";
 import SuggestedProducts from "./SuggestedProducts";
 import { formatEGP, lt } from "@/lib/format";
 import { computeBogo } from "@/lib/bogo";
+import { collectionGroups } from "@/lib/collections";
 import { btn } from "@/components/ui/Button";
 import type { Locale } from "@/lib/types";
 
@@ -19,17 +20,27 @@ export default function CartDrawer() {
   const { items, subtotal, isOpen, setOpen, updateQty, removeItem, activePromo } =
     useCart();
 
-  // Buy X Get Y preview (the authoritative total is computed at checkout).
+  // Collection bundles apply first (preview; the server is authoritative).
+  const bundles = collectionGroups(items);
+  const collectionDiscount = bundles.reduce((s, g) => s + g.discount, 0);
+  const afterCollections = Math.max(0, subtotal - collectionDiscount);
+
+  // Buy X Get Y preview — never counts items that belong to a collection bundle.
+  const nonCollectionItems = items.filter((i) => !i.collectionId);
   const bogo = activePromo
     ? computeBogo(
-        items.map((i) => ({ unitPrice: i.unitPrice, qty: i.qty })),
+        nonCollectionItems.map((i) => ({ unitPrice: i.unitPrice, qty: i.qty })),
         activePromo.buyQuantity,
         activePromo.freeQuantity
       )
     : null;
-  const minMet = !activePromo || subtotal >= activePromo.minOrderTotal;
+  const minMet = !activePromo || afterCollections >= activePromo.minOrderTotal;
   const showBogoDiscount = !!bogo && minMet && bogo.discount > 0;
-  const promoTotal = showBogoDiscount ? Math.max(0, subtotal - bogo!.discount) : subtotal;
+  const promoTotal = Math.max(
+    0,
+    afterCollections - (showBogoDiscount ? bogo!.discount : 0)
+  );
+  const hasAnyDiscount = collectionDiscount > 0 || showBogoDiscount;
 
   // Slide from the logical end side: right in LTR, left in RTL.
   const closedX = locale === "ar" ? "-100%" : "100%";
@@ -181,16 +192,28 @@ export default function CartDrawer() {
                   {formatEGP(subtotal, locale)}
                 </span>
               </div>
-              {showBogoDiscount && (
+              {collectionDiscount > 0 && (
+                <div className="mb-1 flex items-center justify-between text-brand">
+                  <span className="text-sm font-bold">
+                    {ar ? "خصم الكولكشن" : "Collection bundle"}
+                  </span>
+                  <span className="text-sm font-extrabold">
+                    -{formatEGP(collectionDiscount, locale)}
+                  </span>
+                </div>
+              )}
+              {hasAnyDiscount && (
                 <>
-                  <div className="mb-1 flex items-center justify-between text-brand">
-                    <span className="text-sm font-bold">
-                      {ar ? "خصم العرض" : "Promo discount"}
-                    </span>
-                    <span className="text-sm font-extrabold">
-                      -{formatEGP(bogo!.discount, locale)}
-                    </span>
-                  </div>
+                  {showBogoDiscount && (
+                    <div className="mb-1 flex items-center justify-between text-brand">
+                      <span className="text-sm font-bold">
+                        {ar ? "خصم العرض" : "Promo discount"}
+                      </span>
+                      <span className="text-sm font-extrabold">
+                        -{formatEGP(bogo!.discount, locale)}
+                      </span>
+                    </div>
+                  )}
                   <div className="mb-1 flex items-center justify-between">
                     <span className="font-bold uppercase text-sm text-navy">
                       {ar ? "الإجمالي بعد الخصم" : "Total after discount"}

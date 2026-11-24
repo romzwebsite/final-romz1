@@ -7,6 +7,7 @@ import type {
   Badge,
   AdminReview,
   Category,
+  Collection,
   ContactMessage,
   ContactStatus,
   Coupon,
@@ -639,7 +640,13 @@ export interface ShippingQuoteInput {
   zoneCode: string;
   /** Selected governorate nameEn — lets the backend fall back if Mylerz is down. */
   governorate?: string;
-  items: { product: string; variantId?: string; sku?: string; qty: number }[];
+  items: {
+    product: string;
+    variantId?: string;
+    sku?: string;
+    qty: number;
+    collectionId?: string;
+  }[];
   couponCode?: string;
   paymentMethod?: PaymentMethod;
 }
@@ -661,6 +668,7 @@ export async function getShippingQuote(
         ...(item.variantId ? { variantId: item.variantId } : {}),
         ...(item.sku ? { sku: item.sku } : {}),
         qty: item.qty,
+        ...(item.collectionId ? { collectionId: item.collectionId } : {}),
       })),
       couponCode: input.couponCode ?? "",
       paymentMethod: input.paymentMethod ?? "cod",
@@ -817,6 +825,7 @@ interface BeValidatedCartItem {
   unitPrice: number;
   lineTotal: number;
   inStock?: boolean;
+  collectionId?: string | null;
 }
 
 interface BeUnavailableCartItem {
@@ -847,6 +856,7 @@ export interface ValidatedCartItem {
   unitPrice: number;
   lineTotal: number;
   inStock: boolean;
+  collectionId?: string;
 }
 
 export interface UnavailableCartItem {
@@ -874,6 +884,8 @@ export interface ValidatedCart {
     buyQuantity?: number | null;
     freeQuantity?: number | null;
   };
+  /** Savings from collection bundle pricing (separate from the coupon). */
+  collectionDiscount: number;
   total: number;
   isValid: boolean;
 }
@@ -897,6 +909,7 @@ const mapValidatedCart = (cart: {
     buyQuantity?: number | null;
     freeQuantity?: number | null;
   };
+  collectionDiscount?: number;
   total?: number;
   isValid?: boolean;
 }): ValidatedCart => ({
@@ -915,6 +928,7 @@ const mapValidatedCart = (cart: {
     unitPrice: item.unitPrice,
     lineTotal: item.lineTotal,
     inStock: item.inStock ?? false,
+    collectionId: item.collectionId ? String(item.collectionId) : undefined,
   })),
   unavailableItems: (cart.unavailableItems ?? []).map((item) => ({
     product: item.product ? String(item.product) : undefined,
@@ -936,6 +950,7 @@ const mapValidatedCart = (cart: {
     buyQuantity: cart.discount?.buyQuantity ?? null,
     freeQuantity: cart.discount?.freeQuantity ?? null,
   },
+  collectionDiscount: cart.collectionDiscount ?? 0,
   total: cart.total ?? 0,
   isValid: cart.isValid ?? false,
 });
@@ -955,7 +970,13 @@ export async function getActivePromo(): Promise<ActivePromo | null> {
 
 export async function validateCart(
   input: {
-    items: { product: string; variantId?: string; sku?: string; qty: number }[];
+    items: {
+      product: string;
+      variantId?: string;
+      sku?: string;
+      qty: number;
+      collectionId?: string;
+    }[];
     couponCode?: string;
   },
   token?: string
@@ -972,12 +993,73 @@ export async function validateCart(
         ...(item.variantId ? { variantId: item.variantId } : {}),
         ...(item.sku ? { sku: item.sku } : {}),
         qty: item.qty,
+        ...(item.collectionId ? { collectionId: item.collectionId } : {}),
       })),
       couponCode: input.couponCode ?? "",
     }),
   });
 
   return mapValidatedCart(cart);
+}
+
+// ── Collections ─────────────────────────────────────────
+interface BeCollection {
+  _id: string;
+  slug: string;
+  name: BeLocalized;
+  description?: BeLocalized;
+  products?: BeProduct[];
+  bundlePrice: number;
+  originalTotal?: number;
+  isActive?: boolean;
+  order?: number;
+}
+
+const mapCollection = (c: BeCollection): Collection => ({
+  id: c._id,
+  slug: c.slug,
+  name: loc(c.name),
+  description: c.description ? loc(c.description) : undefined,
+  products: (c.products ?? []).map(mapProduct),
+  bundlePrice: c.bundlePrice ?? 0,
+  originalTotal:
+    c.originalTotal ??
+    (c.products ?? []).reduce(
+      (sum, p) => sum + (p.salePrice ?? p.basePrice ?? 0),
+      0
+    ),
+  isActive: c.isActive ?? true,
+  order: c.order,
+});
+
+export async function getCollections(): Promise<Collection[]> {
+  const { collections } = await apiFetch<{ collections: BeCollection[] }>(
+    "/collections"
+  );
+  return collections.map(mapCollection);
+}
+
+/** Admin: every collection, active or not. */
+export async function getAdminCollections(token?: string): Promise<Collection[]> {
+  const { collections } = await apiFetch<{ collections: BeCollection[] }>(
+    "/collections/admin",
+    { headers: authHeaders(token) }
+  );
+  return collections.map(mapCollection);
+}
+
+export async function getCollectionBySlug(
+  slug: string
+): Promise<Collection | undefined> {
+  try {
+    const { collection } = await apiFetch<{ collection: BeCollection }>(
+      `/collections/slug/${encodeURIComponent(slug)}`
+    );
+    return mapCollection(collection);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return undefined;
+    throw error;
+  }
 }
 
 export interface CreateOrderInput {
@@ -991,7 +1073,7 @@ export interface CreateOrderInput {
     apartment?: string;
     postal?: string;
   };
-  items: { product: string; variantId: string; qty: number }[];
+  items: { product: string; variantId: string; qty: number; collectionId?: string }[];
   couponCode?: string;
   paymentMethod: PaymentMethod;
   /** Meta pixel cookies + checkout URL for the server-side (Conversions API) Purchase. */
@@ -1025,6 +1107,7 @@ export async function createOrder(
         product: item.product,
         variantId: item.variantId,
         qty: item.qty,
+        ...(item.collectionId ? { collectionId: item.collectionId } : {}),
       })),
       couponCode: input.couponCode ?? "",
       paymentMethod: input.paymentMethod,
