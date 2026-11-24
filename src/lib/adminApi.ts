@@ -469,6 +469,8 @@ export interface CollectionPayload {
   description?: { ar: string; en: string };
   products: string[];
   bundlePrice: number;
+  /** Category id, or "" to clear. */
+  category?: string;
   isActive?: boolean;
   order?: number;
 }

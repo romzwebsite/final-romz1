@@ -1,16 +1,166 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import clsx from "clsx";
 import Button from "@/components/ui/Button";
 import { useCart } from "@/components/cart/CartProvider";
 import { lt, formatEGP } from "@/lib/format";
+import { orderSizes } from "@/lib/product";
 import type { Collection, Locale, Product, Variant } from "@/lib/types";
 
 const unitPrice = (product: Product, variant?: Variant) =>
   variant?.priceOverride ?? product.salePrice ?? product.basePrice;
 
-const firstInStock = (product: Product): Variant | undefined =>
-  product.variants.find((v) => v.stock > 0) ?? product.variants[0];
+/** One product card with color/size selection. Nothing is selected by default. */
+function ProductPicker({
+  product,
+  locale,
+  selectedVariantId,
+  onSelect,
+  highlight,
+}: {
+  product: Product;
+  locale: Locale;
+  selectedVariantId?: string;
+  onSelect: (variantId: string | undefined) => void;
+  highlight: boolean;
+}) {
+  const ar = locale === "ar";
+  const colors = useMemo(() => {
+    const map = new Map<string, { hex: string; name: Product["variants"][number]["color"]["name"] }>();
+    for (const v of product.variants) {
+      const key = v.color.hex.trim().toLowerCase();
+      if (!map.has(key)) map.set(key, { hex: v.color.hex, name: v.color.name });
+    }
+    return [...map.values()];
+  }, [product.variants]);
+
+  const singleColor = colors.length <= 1;
+  const [colorHex, setColorHex] = useState<string | null>(
+    singleColor ? colors[0]?.hex ?? null : null
+  );
+  const [size, setSize] = useState<string | null>(null);
+
+  const normColor = colorHex?.trim().toLowerCase();
+  const sizes = useMemo(() => {
+    const vs = product.variants.filter(
+      (v) => v.color.hex.trim().toLowerCase() === normColor
+    );
+    return orderSizes(vs.map((v) => v.size)).map((s) => ({
+      size: s,
+      stock: vs.find((v) => v.size === s)?.stock ?? 0,
+    }));
+  }, [product.variants, normColor]);
+
+  const pickColor = (hex: string) => {
+    setColorHex(hex);
+    setSize(null);
+    onSelect(undefined);
+  };
+  const pickSize = (s: string) => {
+    setSize(s);
+    const v = product.variants.find(
+      (x) => x.color.hex.trim().toLowerCase() === normColor && x.size === s
+    );
+    onSelect(v?.id);
+  };
+
+  const image =
+    product.images.find((i) => i.color?.trim().toLowerCase() === normColor)?.url ??
+    product.images[0]?.url;
+
+  return (
+    <div
+      className={clsx(
+        "flex flex-col gap-4 border-2 bg-white p-4 sm:flex-row",
+        highlight && !selectedVariantId ? "border-brand" : "border-navy/10"
+      )}
+    >
+      <div className="h-48 w-full shrink-0 bg-surface sm:h-40 sm:w-40">
+        {image && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={image}
+            alt={lt(product.name, locale)}
+            className="h-full w-full object-cover"
+          />
+        )}
+      </div>
+
+      <div className="flex flex-1 flex-col">
+        <p className="font-display uppercase text-lg text-navy">
+          {lt(product.name, locale)}
+        </p>
+        <p className="text-sm font-extrabold text-brand">
+          {formatEGP(unitPrice(product), locale)}
+        </p>
+
+        {!singleColor && (
+          <div className="mt-3">
+            <p className="mb-1.5 text-[11px] font-extrabold uppercase tracking-wide text-muted">
+              {ar ? "اللون" : "Color"}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {colors.map((c) => (
+                <button
+                  key={c.hex}
+                  type="button"
+                  onClick={() => pickColor(c.hex)}
+                  aria-label={lt(c.name, locale)}
+                  aria-pressed={c.hex === colorHex}
+                  className={clsx(
+                    "h-8 w-8 rounded-full border-2 p-0.5 cursor-pointer",
+                    c.hex === colorHex ? "border-brand" : "border-navy/20"
+                  )}
+                >
+                  <span
+                    className="block h-full w-full rounded-full"
+                    style={{ backgroundColor: c.hex }}
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="mt-3">
+          <p className="mb-1.5 text-[11px] font-extrabold uppercase tracking-wide text-muted">
+            {ar ? "المقاس" : "Size"}
+          </p>
+          {!colorHex ? (
+            <p className="text-xs text-muted">
+              {ar ? "اختر اللون أولاً" : "Choose a color first"}
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {sizes.map(({ size: s, stock }) => {
+                const out = stock === 0;
+                const active = size === s;
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    disabled={out}
+                    onClick={() => pickSize(s)}
+                    className={clsx(
+                      "h-10 min-w-10 border-2 px-3 text-sm font-extrabold uppercase transition-colors cursor-pointer",
+                      active
+                        ? "border-navy bg-navy text-white"
+                        : "border-navy/20 text-navy hover:border-navy",
+                      out && "cursor-not-allowed border-navy/10 text-navy/30"
+                    )}
+                  >
+                    {s}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function CollectionDetailClient({
   collection,
@@ -22,30 +172,20 @@ export default function CollectionDetailClient({
   const ar = locale === "ar";
   const { addItem } = useCart();
 
-  // One chosen variant per product (defaults to the first in-stock variant).
-  const [selections, setSelections] = useState<Record<string, string>>(() => {
-    const init: Record<string, string> = {};
-    for (const p of collection.products) {
-      const v = firstInStock(p);
-      if (v) init[p.id] = v.id;
-    }
-    return init;
-  });
+  // No default selection — the customer must pick for every product.
+  const [selected, setSelected] = useState<Record<string, string | undefined>>({});
+  const [triedAdd, setTriedAdd] = useState(false);
   const [added, setAdded] = useState(false);
 
   const save = Math.max(0, collection.originalTotal - collection.bundlePrice);
-
-  const everyProductHasStock = useMemo(
-    () => collection.products.every((p) => p.variants.some((v) => v.stock > 0)),
-    [collection.products]
-  );
+  const allSelected = collection.products.every((p) => selected[p.id]);
 
   const addCollection = () => {
+    setTriedAdd(true);
+    if (!allSelected) return;
     for (const product of collection.products) {
-      const variant =
-        product.variants.find((v) => v.id === selections[product.id]) ??
-        firstInStock(product);
-      if (!variant || variant.stock < 1) return;
+      const variant = product.variants.find((v) => v.id === selected[product.id]);
+      if (!variant) return;
       addItem({
         productId: product.id,
         variantId: variant.id,
@@ -59,7 +199,9 @@ export default function CollectionDetailClient({
         unitPrice: unitPrice(product, variant),
         image:
           product.images.find(
-            (i) => i.color?.trim().toLowerCase() === variant.color.hex.trim().toLowerCase()
+            (i) =>
+              i.color?.trim().toLowerCase() ===
+              variant.color.hex.trim().toLowerCase()
           )?.url ?? product.images[0]?.url,
         maxStock: variant.stock,
         collectionId: collection.id,
@@ -71,11 +213,15 @@ export default function CollectionDetailClient({
   };
 
   return (
-    <section className="mx-auto max-w-[1100px] px-6 py-12 md:py-16">
+    <section className="mx-auto max-w-[900px] px-6 py-12 md:py-16">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-[11px] font-extrabold uppercase tracking-[0.25em] text-brand">
-            {ar ? "كولكشن" : "Collection"}
+            {collection.category
+              ? lt(collection.category.name, locale)
+              : ar
+                ? "كولكشن"
+                : "Collection"}
           </p>
           <h1 className="mt-1 font-display uppercase text-4xl text-navy">
             {lt(collection.name, locale)}
@@ -105,77 +251,40 @@ export default function CollectionDetailClient({
         </div>
       </div>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2">
-        {collection.products.map((product) => {
-          const inStockVariants = product.variants.filter((v) => v.stock > 0);
-          const outOfStock = inStockVariants.length === 0;
-          const selectedId = selections[product.id];
-          return (
-            <div
-              key={product.id}
-              className="flex gap-4 border-2 border-navy/10 bg-white p-4"
-            >
-              <div className="h-24 w-24 shrink-0 bg-surface">
-                {product.images[0]?.url && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={product.images[0].url}
-                    alt={lt(product.name, locale)}
-                    className="h-full w-full object-cover"
-                  />
-                )}
-              </div>
-              <div className="flex flex-1 flex-col">
-                <p className="text-sm font-bold text-navy">
-                  {lt(product.name, locale)}
-                </p>
-                <p className="text-xs text-muted">
-                  {formatEGP(unitPrice(product), locale)}
-                </p>
-                {outOfStock ? (
-                  <p className="mt-auto text-xs font-bold text-brand">
-                    {ar ? "غير متوفر" : "Out of stock"}
-                  </p>
-                ) : (
-                  <label className="mt-auto block">
-                    <span className="mb-1 block text-[10px] font-extrabold uppercase tracking-wide text-muted">
-                      {ar ? "اللون / المقاس" : "Color / Size"}
-                    </span>
-                    <select
-                      value={selectedId ?? ""}
-                      onChange={(e) =>
-                        setSelections((s) => ({ ...s, [product.id]: e.target.value }))
-                      }
-                      className="w-full border-2 border-navy/15 bg-white px-2 py-1.5 text-sm text-navy outline-none focus:border-brand"
-                    >
-                      {inStockVariants.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          {lt(v.color.name, locale)} / {v.size}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-              </div>
-            </div>
-          );
-        })}
+      <p className="mt-6 text-sm font-bold text-navy">
+        {ar
+          ? "اختر اللون والمقاس لكل منتج:"
+          : "Choose a color and size for each product:"}
+      </p>
+
+      <div className="mt-3 flex flex-col gap-4">
+        {collection.products.map((product) => (
+          <ProductPicker
+            key={product.id}
+            product={product}
+            locale={locale}
+            selectedVariantId={selected[product.id]}
+            onSelect={(variantId) =>
+              setSelected((s) => ({ ...s, [product.id]: variantId }))
+            }
+            highlight={triedAdd}
+          />
+        ))}
       </div>
 
-      <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-        <Button
-          size="lg"
-          onClick={addCollection}
-          disabled={!everyProductHasStock}
-          className="w-full sm:w-auto"
-        >
-          {everyProductHasStock
-            ? ar
-              ? `أضف الكولكشن للسلة · ${formatEGP(collection.bundlePrice, locale)}`
-              : `Add collection to cart · ${formatEGP(collection.bundlePrice, locale)}`
-            : ar
-              ? "بعض المنتجات غير متوفرة"
-              : "Some items unavailable"}
+      {triedAdd && !allSelected && (
+        <p className="mt-4 text-sm font-bold text-brand">
+          {ar
+            ? "من فضلك اختر المقاس لكل منتج قبل الإضافة."
+            : "Please choose a size for every product first."}
+        </p>
+      )}
+
+      <div className="mt-6 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+        <Button size="lg" onClick={addCollection} className="w-full sm:w-auto">
+          {ar
+            ? `أضف الكولكشن للسلة · ${formatEGP(collection.bundlePrice, locale)}`
+            : `Add collection to cart · ${formatEGP(collection.bundlePrice, locale)}`}
         </Button>
         {added && (
           <span className="text-sm font-bold text-success">
