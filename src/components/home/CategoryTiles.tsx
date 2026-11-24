@@ -69,16 +69,16 @@ export default function CategoryTiles({
             </Reveal>
           ))}
 
-          {/* Collections appear here as tiles when any exist; otherwise nothing. */}
-          {collections.map((c, i) => (
-            <Reveal key={c.id} delay={(categories.length + i) * 0.12}>
+          {/* One "Collections" tile for all collections (hidden when none). */}
+          {collections.length > 0 && (
+            <Reveal delay={categories.length * 0.12}>
               <Link
-                href={`/collections/${c.slug}`}
+                href="/collections"
                 className="group relative flex aspect-[4/5] flex-col justify-end overflow-hidden bg-navy-deep p-6"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={collImage(c)}
+                  src={collImage(collections[0])}
                   alt=""
                   aria-hidden
                   loading="lazy"
@@ -89,12 +89,9 @@ export default function CategoryTiles({
                   aria-hidden
                   className="absolute inset-0 bg-gradient-to-t from-navy-deep/90 via-navy-deep/20 to-transparent"
                 />
-                <span className="absolute start-4 top-4 bg-brand px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-white">
-                  {locale === "ar" ? "كولكشن" : "Collection"}
-                </span>
                 <div className="relative flex items-end justify-between gap-3">
                   <h3 className="font-display uppercase text-2xl md:text-3xl text-white">
-                    {lt(c.name, locale)}
+                    {locale === "ar" ? "الكولكشنز" : "Collections"}
                   </h3>
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-brand text-white transition-transform group-hover:translate-x-1 rtl:group-hover:-translate-x-1">
                     <Arrow size={18} />
@@ -102,7 +99,7 @@ export default function CategoryTiles({
                 </div>
               </Link>
             </Reveal>
-          ))}
+          )}
         </div>
       </div>
     </section>
