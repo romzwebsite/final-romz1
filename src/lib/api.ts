@@ -1084,8 +1084,10 @@ const authHeaders = (token?: string) =>
 interface BeCoupon {
   _id: string;
   code: string;
-  type: "percent" | "fixed";
+  type: "percent" | "fixed" | "bogo";
   value: number;
+  buyQuantity?: number | null;
+  freeQuantity?: number | null;
   minOrderTotal?: number;
   usedCount?: number;
   isActive?: boolean;
@@ -1096,6 +1098,8 @@ const mapCoupon = (c: BeCoupon): Coupon => ({
   code: c.code,
   type: c.type,
   value: c.value,
+  buyQuantity: c.buyQuantity ?? null,
+  freeQuantity: c.freeQuantity ?? null,
   minOrderTotal: c.minOrderTotal ?? 0,
   usedCount: c.usedCount ?? 0,
   discountGiven: 0,

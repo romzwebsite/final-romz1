@@ -226,8 +226,12 @@ export interface Coupon {
   /** Mongo _id — present when loaded from the backend, absent in mock data. */
   id?: string;
   code: string;
-  type: "percent" | "fixed";
+  type: "percent" | "fixed" | "bogo";
   value: number;
+  /** Buy X Get Y coupons only: how many items the customer buys. */
+  buyQuantity?: number | null;
+  /** Buy X Get Y coupons only: how many of the cheapest items are free. */
+  freeQuantity?: number | null;
   minOrderTotal: number;
   usedCount: number;
   discountGiven: number;
