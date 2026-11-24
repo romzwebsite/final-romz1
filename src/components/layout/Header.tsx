@@ -231,6 +231,13 @@ export default function Header({ categories = [] }: { categories?: Category[] })
                 })}
 
                 <Link
+                  href="/collections"
+                  onClick={() => setMobileOpen(false)}
+                  className="block py-2.5 font-display uppercase text-navy hover:text-brand"
+                >
+                  {isRtl ? "الكولكشنز" : "Collections"}
+                </Link>
+                <Link
                   href="/track-order"
                   onClick={() => setMobileOpen(false)}
                   className="block py-2.5 font-display uppercase text-navy hover:text-brand"
