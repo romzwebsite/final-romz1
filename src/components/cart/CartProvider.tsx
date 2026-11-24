@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import type { CartItem } from "@/lib/types";
+import type { ActivePromo } from "@/lib/api";
 
 const STORAGE_KEY = "romz-cart";
 
@@ -22,6 +23,8 @@ interface CartContextValue {
   updateQty: (sku: string, qty: number) => void;
   removeItem: (sku: string) => void;
   clear: () => void;
+  /** The active Buy X Get Y promo, or null. Supplied by the server layout. */
+  activePromo: ActivePromo | null;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -32,7 +35,13 @@ export function useCart(): CartContextValue {
   return ctx;
 }
 
-export function CartProvider({ children }: { children: ReactNode }) {
+export function CartProvider({
+  children,
+  activePromo = null,
+}: {
+  children: ReactNode;
+  activePromo?: ActivePromo | null;
+}) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isOpen, setOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -104,6 +113,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         updateQty,
         removeItem,
         clear,
+        activePromo,
       }}
     >
       {children}

@@ -10,8 +10,10 @@ import CartDrawer from "@/components/cart/CartDrawer";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import PromoBar from "@/components/layout/PromoBar";
+import BogoBanner from "@/components/layout/BogoBanner";
 import MetaPixel from "@/components/analytics/MetaPixel";
-import { getCategoryTree } from "@/lib/api";
+import { getActivePromo, getCategoryTree } from "@/lib/api";
+import type { ActivePromo } from "@/lib/api";
 import { getStorefrontSettings } from "@/lib/storefrontSettings";
 import type { Category } from "@/lib/types";
 import "@/app/globals.css";
@@ -71,6 +73,12 @@ export default async function StoreLayout({
   } catch {
     categories = [];
   }
+  let activePromo: ActivePromo | null = null;
+  try {
+    activePromo = await getActivePromo();
+  } catch {
+    activePromo = null;
+  }
 
   return (
     <html
@@ -84,8 +92,9 @@ export default async function StoreLayout({
       >
         <NextIntlClientProvider messages={messages}>
           <AuthProvider>
-            <CartProvider>
+            <CartProvider activePromo={activePromo}>
               <PromoBar locale={locale} promoBar={settings.promoBar} />
+              <BogoBanner locale={locale} promo={activePromo} />
               <Header categories={categories} />
               <main>{children}</main>
               <Footer categories={categories} />

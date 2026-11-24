@@ -439,7 +439,12 @@ export default function CheckoutClient({
               variantId: item.variantId,
               qty: item.qty,
             })),
-            couponCode: validatedCart.discount.couponCode || undefined,
+            // bogo promos are auto-applied server-side; don't echo the internal
+            // promo code back (it would route through the strict code path).
+            couponCode:
+              validatedCart.discount.type === "bogo"
+                ? undefined
+                : validatedCart.discount.couponCode || undefined,
             paymentMethod: form.payment,
             // For the server-side Purchase (Meta Conversions API).
             tracking: pixelServerTracking(),
@@ -957,7 +962,13 @@ export default function CheckoutClient({
           </div>
           {(validatedCart?.discount.amount ?? 0) > 0 && (
             <div className="flex justify-between text-brand">
-              <span>{t("discount")}</span>
+              <span>
+                {validatedCart?.discount.type === "bogo"
+                  ? locale === "ar"
+                    ? `اشترِ ${validatedCart.discount.buyQuantity} والأرخص ${validatedCart.discount.freeQuantity} ببلاش`
+                    : `Buy ${validatedCart.discount.buyQuantity} get ${validatedCart.discount.freeQuantity} free`
+                  : t("discount")}
+              </span>
               <span>-{formatEGP(validatedCart?.discount.amount ?? 0, locale)}</span>
             </div>
           )}
