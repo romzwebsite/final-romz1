@@ -40,16 +40,16 @@ export default function CouponsClient({ coupons }: { coupons: Coupon[] }) {
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
-    if (!form.code.trim()) {
-      setError("Coupon code is required.");
-      return;
-    }
     if (form.type === "bogo") {
       if (form.buyQuantity < 1 || form.freeQuantity < 1) {
         setError("Buy and free quantities must be at least 1.");
         return;
       }
     } else {
+      if (!form.code.trim()) {
+        setError("Coupon code is required.");
+        return;
+      }
       if (form.value <= 0) {
         setError("Value must be above zero.");
         return;
@@ -63,11 +63,12 @@ export default function CouponsClient({ coupons }: { coupons: Coupon[] }) {
     setError(null);
     try {
       await createCoupon({
-        code: form.code.trim().toUpperCase(),
         type: form.type,
+        // bogo promos run automatically with no customer code; the server
+        // generates an internal one.
         ...(form.type === "bogo"
           ? { buyQuantity: form.buyQuantity, freeQuantity: form.freeQuantity }
-          : { value: form.value }),
+          : { code: form.code.trim().toUpperCase(), value: form.value }),
         ...(form.minOrderTotal > 0 ? { minOrderTotal: form.minOrderTotal } : {}),
         ...(form.usageLimit > 0 ? { usageLimit: form.usageLimit } : {}),
         isActive: true,
@@ -144,17 +145,19 @@ export default function CouponsClient({ coupons }: { coupons: Coupon[] }) {
             </button>
           </div>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
-            <div>
-              <label className={labelCls}>Code</label>
-              <input
-                value={form.code}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))
-                }
-                placeholder="SUMMER26"
-                className={clsx(inputCls, "font-mono uppercase")}
-              />
-            </div>
+            {form.type !== "bogo" && (
+              <div>
+                <label className={labelCls}>Code</label>
+                <input
+                  value={form.code}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))
+                  }
+                  placeholder="SUMMER26"
+                  className={clsx(inputCls, "font-mono uppercase")}
+                />
+              </div>
+            )}
             <div>
               <label className={labelCls}>Type</label>
               <select
@@ -237,7 +240,9 @@ export default function CouponsClient({ coupons }: { coupons: Coupon[] }) {
           </div>
           {form.type === "bogo" && (
             <p className="mt-3 text-xs text-muted">
-              Buy {form.buyQuantity || 0} &amp; get {form.freeQuantity || 0} free — the
+              No code needed — this promo applies automatically to every cart while
+              active (only one Buy X Get Y promo runs at a time). Buy{" "}
+              {form.buyQuantity || 0} &amp; get {form.freeQuantity || 0} free: the
               customer pays for the most expensive items and the cheapest{" "}
               {form.freeQuantity || 0} of every {(form.buyQuantity || 0) + (form.freeQuantity || 0)}{" "}
               item(s) are free.
@@ -280,7 +285,7 @@ export default function CouponsClient({ coupons }: { coupons: Coupon[] }) {
                       c.isActive ? "bg-navy" : "bg-muted"
                     )}
                   >
-                    {c.code}
+                    {c.type === "bogo" ? "AUTO" : c.code}
                   </span>
                 </td>
                 <td className="px-4 py-3 uppercase text-muted">{c.type}</td>
