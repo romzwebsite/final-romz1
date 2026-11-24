@@ -41,17 +41,14 @@ export function computeBogo(
   }
 
   const totalUnits = prices.length;
-  // Most expensive first — the free slots in each group fall on the cheapest.
-  prices.sort((a, b) => b - a);
+
+  // Free the cheapest `freeUnits` units overall (one `free` batch per full
+  // group of `groupSize`). Cheapest first.
+  const freeUnits = Math.floor(totalUnits / groupSize) * free;
+  prices.sort((a, b) => a - b);
 
   let discount = 0;
-  let freeUnits = 0;
-  for (let i = 0; i < totalUnits; i += 1) {
-    if (i % groupSize >= buy) {
-      discount += prices[i];
-      freeUnits += 1;
-    }
-  }
+  for (let i = 0; i < freeUnits; i += 1) discount += prices[i];
 
   const inGroup = totalUnits % groupSize;
   const itemsToNextFree = inGroup === 0 ? 0 : groupSize - inGroup;
