@@ -26,6 +26,9 @@ export default function CategoryTiles({
   const collImage = (c: Collection) =>
     c.products.map((p) => p.images[0]?.url).find(Boolean) ??
     "/brand/lifestyle/track-sportsbra.webp";
+  // The reserved "collections" category is shown via the dedicated tile below,
+  // not as a normal product category.
+  const cats = categories.filter((c) => c.slug !== "collections");
 
   return (
     <section className="clip-diagonal-top bg-navy pb-16 pt-24 md:pb-24 md:pt-32">
@@ -34,7 +37,7 @@ export default function CategoryTiles({
           <SectionHeading title={t("shopByCategory")} ghost="CATEGORY" light />
         </Reveal>
         <div className="mt-10 grid gap-4 md:grid-cols-3 md:gap-6">
-          {categories.map((cat, i) => (
+          {cats.map((cat, i) => (
             <Reveal key={cat.id} delay={i * 0.12}>
               <Link
                 href={`/category/${cat.slug}`}
@@ -71,7 +74,7 @@ export default function CategoryTiles({
 
           {/* One "Collections" tile for all collections (hidden when none). */}
           {collections.length > 0 && (
-            <Reveal delay={categories.length * 0.12}>
+            <Reveal delay={cats.length * 0.12}>
               <Link
                 href="/collections"
                 className="group relative flex aspect-[4/5] flex-col justify-end overflow-hidden bg-navy-deep p-6"

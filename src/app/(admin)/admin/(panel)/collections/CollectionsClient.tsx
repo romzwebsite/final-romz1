@@ -79,8 +79,12 @@ export default function CollectionsClient({
         : [...f.productIds, id],
     }));
 
+  // The reserved "Collections" category — new collections default into it.
+  const collectionsCatId =
+    categories.find((c) => c.slug === "collections")?.id ?? "";
+
   const openNew = () => {
-    setForm(emptyForm);
+    setForm({ ...emptyForm, category: collectionsCatId });
     setSearch("");
     setError(null);
     setCreating(true);

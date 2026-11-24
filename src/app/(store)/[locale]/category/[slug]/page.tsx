@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
 import { getCategories, getProducts } from "@/lib/api";
 import CategoryClient from "./CategoryClient";
@@ -10,6 +10,9 @@ export default async function CategoryPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
+
+  // The reserved "collections" category lists collections, not products.
+  if (slug === "collections") redirect(`/${locale}/collections`);
 
   const categories = await getCategories();
   const category = categories.find((c) => c.slug === slug);
